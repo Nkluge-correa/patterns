@@ -292,11 +292,43 @@ def gen_noisy_palindrome(vocab, target_len, rng):
 
 
 @_register(
+    "dyck",
+    "Dyck-1: properly balanced brackets of a single type, e.g. (()()). "
+    "Tests maintaining a single stack / matched parentheses without "
+    "interleaving different bracket types.",
+)
+def gen_dyck(vocab, target_len, rng):
+    # Need just 2 distinct vocab IDs: one for open, one for close
+    open_id, close_id = sample_distinct(vocab, 2, rng)
+    
+    sequence: List[int] = []
+    depth = 0
+    while len(sequence) < target_len:
+        # Must open if everything is closed or randomly choose to open
+        if depth == 0:
+            sequence.append(open_id)
+            depth += 1
+        elif rng.random() < 0.5 and depth < target_len // 2:
+            sequence.append(open_id)
+            depth += 1
+        else:
+            sequence.append(close_id)
+            depth -= 1
+    
+    # Close any remaining open brackets to ensure balanced sequence
+    while depth > 0:
+        sequence.append(close_id)
+        depth -= 1
+    
+    return sequence[:target_len]
+
+
+@_register(
     "shuffle_dyck",
-    "k-shuffle Dyck word: k independent bracket types whose open/close tokens "
-    "may interleave freely, e.g. ( [ ) { } ]. Tests maintaining multiple "
-    "parallel stacks. Truncated at target_len; the tail may be unmatched, "
-    "which is acceptable.",
+    "Typed Dyck language (Dyck-k): k independent bracket types whose open/close "
+    "tokens may interleave freely, e.g. ( [ ) { } ]. Tests maintaining multiple "
+    "parallel stacks and complex nesting. Truncated at target_len; the tail may "
+    "be unmatched, which is acceptable.",
 )
 def gen_shuffle_dyck(vocab, target_len, rng,
                      k: int = 3, p_open: float = 0.5, max_depth: int = 8):
