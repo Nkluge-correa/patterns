@@ -1,0 +1,100 @@
+# tokenizer        : gpt2
+# filtered vocab   : 50233 tokens (filter=all)
+# length range     : [2, 4]
+# max context len  : 32
+
+[periodic]  (Repeating block of length p, e.g. ABCABCABC.)
+  total length   = 32
+  n_insertions   = 4
+  pattern        = [29296, 43300, 29296, 43300]
+  full sample    = [7166, 8028, 47296, 3205, 29296, 43300, 29296, 43300, 33988, 16543, 31342, 29296, 43300, 29296, 43300, 29296, 43300, 29296, 43300, 46163, 29296, 43300, 29296, 43300, 28292, 11684, 29669, 38602, 19910, 19064, 16521, 22173]
+
+[palindrome]  (Mirror symmetry: seq + reverse(seq), e.g. ABCCBA.)
+  total length   = 32
+  n_insertions   = 6
+  pattern        = [41456, 14933, 41456]
+  full sample    = [4273, 41456, 14933, 41456, 41456, 14933, 41456, 13049, 15113, 41456, 14933, 41456, 46555, 26929, 41456, 14933, 41456, 37485, 41456, 14933, 41456, 19215, 11342, 27772, 7976, 5146, 14668, 41456, 14933, 41456, 12345, 2496]
+
+[copy]  (Duplication of a block, e.g. ABCD ABCD ABCD.)
+  total length   = 32
+  n_insertions   = 6
+  pattern        = [2329, 2329, 27917]
+  full sample    = [22274, 10204, 17800, 2329, 2329, 27917, 16641, 2329, 2329, 27917, 25961, 2329, 2329, 27917, 47861, 29239, 29329, 49704, 22666, 2329, 2329, 27917, 36442, 2329, 2329, 27917, 27859, 30186, 40634, 2329, 2329, 27917]
+
+[reverse]  (Source followed by its reverse with a delimiter, e.g. ABCD | DCBA. Like a palindrome but with an explicit boundary token from the vocab.)
+  total length   = 32
+  n_insertions   = 6
+  pattern        = [39783, 12927, 39783]
+  full sample    = [14875, 22935, 39783, 12927, 39783, 39783, 12927, 39783, 33672, 39783, 12927, 39783, 13468, 39783, 12927, 39783, 4592, 33875, 25442, 39783, 12927, 39783, 769, 38450, 47980, 33885, 39783, 12927, 39783, 39080, 42266, 1331]
+
+[counting_anbn]  (A^n B^n: equal counts of two symbols, e.g. AAABBB.)
+  total length   = 32
+  n_insertions   = 4
+  pattern        = [38577, 38577, 10485, 10485]
+  full sample    = [6585, 49853, 38160, 38577, 38577, 10485, 10485, 39827, 46866, 16434, 28003, 36091, 38577, 38577, 10485, 10485, 49212, 38577, 38577, 10485, 10485, 33587, 38577, 38577, 10485, 10485, 27525, 49428, 5219, 27494, 46232, 41340]
+
+[counting_anbncn]  (A^n B^n C^n: equal counts of three symbols, e.g. AAABBBCCC. A context-sensitive (mildly beyond CFG) counting task.)
+  total length   = 32
+  n_insertions   = 8
+  pattern        = [13519, 14570]
+  full sample    = [34558, 47212, 13519, 14570, 13519, 14570, 13519, 14570, 29019, 8314, 13519, 14570, 13519, 14570, 46163, 13519, 14570, 1626, 9539, 1948, 571, 33591, 6503, 41640, 36686, 35726, 48254, 13519, 14570, 13519, 14570, 47202]
+
+[nested]  (Recursive palindromic structure from CFG S -> a S a | epsilon, e.g. ABCDDCBA.)
+  total length   = 32
+  n_insertions   = 4
+  pattern        = [23825, 49992, 49992, 23825]
+  full sample    = [38150, 23825, 49992, 49992, 23825, 17684, 23825, 49992, 49992, 23825, 26314, 36772, 27695, 49641, 47752, 23825, 49992, 49992, 23825, 45661, 24227, 39670, 23825, 49992, 49992, 23825, 41440, 17174, 8675, 48219, 27712, 17489]
+
+[interleaving]  (Interleaved tokens: ABABAB or AABBAABB.)
+  total length   = 32
+  n_insertions   = 6
+  pattern        = [31295, 33532, 31295]
+  full sample    = [1664, 32058, 31295, 33532, 31295, 19830, 31295, 33532, 31295, 31295, 33532, 31295, 31295, 33532, 31295, 48028, 28106, 316, 2466, 31295, 33532, 31295, 27673, 31295, 33532, 31295, 37628, 38157, 18819, 25986, 19514, 14601]
+
+[permutation_cycle]  (Cyclic permutations of a base block, e.g. ABCD BCDA CDAB DABC.)
+  total length   = 32
+  n_insertions   = 4
+  pattern        = [46234, 16781, 16781, 46234]
+  full sample    = [2431, 46234, 16781, 16781, 46234, 46234, 16781, 16781, 46234, 10383, 14745, 43246, 9567, 8118, 46234, 16781, 16781, 46234, 1853, 32163, 8403, 46234, 16781, 16781, 46234, 22139, 42869, 31018, 30472, 47482, 34225, 16813]
+
+[hierarchical]  (Local + global structure mixed, e.g. ABAB CCCC ABAB.)
+  total length   = 32
+  n_insertions   = 6
+  pattern        = [15291, 30276, 19425]
+  full sample    = [15264, 44274, 15291, 30276, 19425, 7312, 15291, 30276, 19425, 41639, 15291, 30276, 19425, 13568, 15291, 30276, 19425, 37834, 15291, 30276, 19425, 30390, 26612, 6538, 43685, 4138, 15291, 30276, 19425, 14113, 919, 47440]
+
+[noisy_palindrome]  (Palindrome with a small fraction of random corruptions.)
+  total length   = 32
+  n_insertions   = 4
+  pattern        = [17411, 10159, 10159, 17411]
+  full sample    = [14095, 46306, 42266, 17411, 10159, 10159, 17411, 17411, 10159, 10159, 17411, 16975, 17411, 10159, 10159, 17411, 22072, 45755, 49052, 25665, 17411, 10159, 10159, 17411, 45808, 39640, 19986, 2385, 19342, 13015, 35503, 9142]
+
+[dyck]  (Dyck-1: properly balanced brackets of a single type, e.g. (()()).)
+  total length   = 32
+  n_insertions   = 1
+  pattern        = [12908, 25699, 12908, 12908, 25699, 25699, 12908, 12908, 12908, 12908, 25699, 12908, 12908, 12908, 25699, 25699, 12908, 12908, 25699, 25699, 12908, 25699, 25699, 25699, 25699, 25699, 12908, 12908, 12908, 25699, 12908, 12908]
+  full sample    = [12908, 25699, 12908, 12908, 25699, 25699, 12908, 12908, 12908, 12908, 25699, 12908, 12908, 12908, 25699, 25699, 12908, 12908, 25699, 25699, 12908, 25699, 25699, 25699, 25699, 25699, 12908, 12908, 12908, 25699, 12908, 12908]
+
+[shuffle_dyck]  (Typed Dyck language (Dyck-k): k independent bracket types whose open/close tokens may interleave freely, e.g. ( [ ) { } ].)
+  total length   = 32
+  n_insertions   = 1
+  pattern        = [11781, 8090, 11781, 22743, 10950, 11781, 8090, 10950, 11781, 35697, 8090, 8090, 35697, 22743, 30598, 10950, 8090, 8090, 35697, 8090, 22743, 8090, 22743, 8090, 30598, 8090, 30598, 11781, 30598, 22743, 30598, 30598]
+  full sample    = [11781, 8090, 11781, 22743, 10950, 11781, 8090, 10950, 11781, 35697, 8090, 8090, 35697, 22743, 30598, 10950, 8090, 8090, 35697, 8090, 22743, 8090, 22743, 8090, 30598, 8090, 30598, 11781, 30598, 22743, 30598, 30598]
+
+[random]  (Uniformly random token IDs drawn (with replacement) from the filtered vocabulary. Serves as an unstructured baseline / control for comparing against the structured patterns.)
+  total length   = 32
+  n_insertions   = 6
+  pattern        = [49267, 16335, 1977]
+  full sample    = [12176, 23392, 49267, 16335, 1977, 2367, 49267, 16335, 1977, 27133, 46580, 39108, 49267, 16335, 1977, 49267, 16335, 1977, 50218, 46318, 49267, 16335, 1977, 37160, 39424, 49267, 16335, 1977, 49003, 44806, 43450, 20711]
+
+[identity]  (Constant repetition of a single token, e.g. AAAAAA. The simplest possible structure: zero entropy, infinite locality. Useful as a degenerate floor that any sequence model should fit trivially.)
+  total length   = 32
+  n_insertions   = 4
+  pattern        = [17276, 17276, 17276, 17276]
+  full sample    = [1136, 9439, 17276, 17276, 17276, 17276, 32339, 34960, 34040, 32977, 39603, 17276, 17276, 17276, 17276, 17276, 17276, 17276, 17276, 27019, 30538, 17276, 17276, 17276, 17276, 5754, 14465, 5904, 28070, 23222, 42909, 299]
+
+[composite_mirror_repeat]  (Multi-rule composition: a small palindrome repeated, e.g. ABCCBA ABCCBA. Tests combining symmetry and periodicity.)
+  total length   = 32
+  n_insertions   = 4
+  pattern        = [21565, 21565, 21565, 21565]
+  full sample    = [691, 15786, 41423, 21565, 21565, 21565, 21565, 47437, 21565, 21565, 21565, 21565, 27132, 39990, 24032, 2885, 3844, 18676, 19414, 18937, 39121, 24914, 21565, 21565, 21565, 21565, 21565, 21565, 21565, 21565, 636, 24931]

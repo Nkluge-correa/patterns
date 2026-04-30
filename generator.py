@@ -3,15 +3,23 @@ Generates synthetic structured token sequences using a HuggingFace
 `AutoTokenizer` vocabulary. The patterns are inspired by formal
 language theory for sequence models.
 
-Each pattern isolates a different capability, like: 
-    - locality
-    - symmetry
-    - counting
-    - recursion
-    - transformation rules
-    - robustness
-    - multi-scale composition
-    - and more
+Available patterns:
+    - periodic: Repeating block (e.g. ABCABCABC).
+    - palindrome: Mirror symmetry (e.g. ABCCBA).
+    - copy: Block duplication (e.g. ABCD ABCD ABCD).
+    - reverse: Sequence + reverse with delimiter (e.g. ABCD | DCBA).
+    - counting_anbn: Equal counts of two symbols (e.g. AAABBB).
+    - counting_anbncn: Equal counts of three symbols (e.g. AAABBBCCC).
+    - nested: Recursive palindromic structure (e.g. ABCDDCBA).
+    - interleaving: Interleaved patterns (e.g. ABABAB or AABBAABB).
+    - permutation_cycle: Cyclic permutations (e.g. ABCD BCDA CDAB DABC).
+    - hierarchical: Local + global structure (e.g. ABAB CCCC ABAB).
+    - noisy_palindrome: Palindrome with ~10% random corruption.
+    - dyck: Single bracket type (e.g. (()())).
+    - shuffle_dyck: Multiple interleaving bracket types (e.g. ( [ ) { } ]).
+    - random: Uniformly random tokens.
+    - identity: Constant repetition of single token (e.g. AAAAAA).
+    - composite_mirror_repeat: Repeated palindrome (e.g. ABCCBA ABCCBA).
 
 Every emitted sample has exactly `--max-context-length` token IDs:
 
@@ -42,7 +50,7 @@ Usage:
         --tokenizer gpt2 \
         --mode tokens \
         --token-filter all \
-        --max-context-length 1024 \
+        --max-context-length 64 \
         --length-min 2 --length-max 16 \
         --samples-per-pattern 10 \
         --output patterns.jsonl \
@@ -135,8 +143,7 @@ def _register(name: str, description: str):
 
 @_register(
     "periodic",
-    "Repeating block of length p, e.g. ABCABCABC. Tests local pattern detection / "
-    "finite-memory regularity.",
+    "Repeating block of length p, e.g. ABCABCABC.",
 )
 def gen_periodic(vocab, target_len, rng):
     period = rng.randint(2, max(2, min(6, target_len // 2)))
@@ -147,8 +154,7 @@ def gen_periodic(vocab, target_len, rng):
 
 @_register(
     "palindrome",
-    "Mirror symmetry: seq + reverse(seq), e.g. ABCCBA. Tests bidirectional "
-    "structure.",
+    "Mirror symmetry: seq + reverse(seq), e.g. ABCCBA.",
 )
 def gen_palindrome(vocab, target_len, rng):
     half = max(1, target_len // 2)
@@ -162,8 +168,7 @@ def gen_palindrome(vocab, target_len, rng):
 
 @_register(
     "copy",
-    "Duplication of a block, e.g. ABCD ABCD ABCD. Tests memorization / verbatim "
-    "copy behavior.",
+    "Duplication of a block, e.g. ABCD ABCD ABCD.",
 )
 def gen_copy(vocab, target_len, rng):
     reps = rng.choice([2, 3]) if target_len >= 6 else 2
@@ -192,8 +197,7 @@ def gen_reverse(vocab, target_len, rng):
 
 @_register(
     "counting_anbn",
-    "A^n B^n: equal counts of two symbols, e.g. AAABBB. The classic context-free "
-    "counting dependency.",
+    "A^n B^n: equal counts of two symbols, e.g. AAABBB.",
 )
 def gen_anbn(vocab, target_len, rng):
     n = max(1, target_len // 2)
@@ -217,7 +221,7 @@ def gen_anbncn(vocab, target_len, rng):
 @_register(
     "nested",
     "Recursive palindromic structure from CFG S -> a S a | epsilon, e.g. "
-    "ABCDDCBA. Tests hierarchical / nested dependencies.",
+    "ABCDDCBA.",
 )
 def gen_nested(vocab, target_len, rng):
     depth = max(1, target_len // 2)
@@ -230,8 +234,7 @@ def gen_nested(vocab, target_len, rng):
 
 @_register(
     "interleaving",
-    "Interleaved tokens: ABABAB or AABBAABB. Tests detection of interleaved "
-    "regularities at different periods.",
+    "Interleaved tokens: ABABAB or AABBAABB.",
 )
 def gen_interleaving(vocab, target_len, rng):
     a, b = sample_distinct(vocab, 2, rng)
@@ -245,8 +248,7 @@ def gen_interleaving(vocab, target_len, rng):
 
 @_register(
     "permutation_cycle",
-    "Cyclic permutations of a base block, e.g. ABCD BCDA CDAB DABC. Tests "
-    "learning of group-theoretic transformation rules.",
+    "Cyclic permutations of a base block, e.g. ABCD BCDA CDAB DABC.",
 )
 def gen_permutation_cycle(vocab, target_len, rng):
     k = rng.randint(2, max(2, min(5, target_len // 2)))
@@ -261,8 +263,7 @@ def gen_permutation_cycle(vocab, target_len, rng):
 
 @_register(
     "hierarchical",
-    "Local + global structure mixed, e.g. ABAB CCCC ABAB. Tests multi-scale "
-    "compositional structure.",
+    "Local + global structure mixed, e.g. ABAB CCCC ABAB.",
 )
 def gen_hierarchical(vocab, target_len, rng):
     third = max(2, target_len // 3)
@@ -275,8 +276,7 @@ def gen_hierarchical(vocab, target_len, rng):
 
 @_register(
     "noisy_palindrome",
-    "Palindrome with a small fraction of random corruptions. Tests robustness "
-    "to noise while preserving global structure.",
+    "Palindrome with a small fraction of random corruptions.",
 )
 def gen_noisy_palindrome(vocab, target_len, rng):
     out = gen_palindrome(vocab, target_len, rng)
@@ -293,9 +293,7 @@ def gen_noisy_palindrome(vocab, target_len, rng):
 
 @_register(
     "dyck",
-    "Dyck-1: properly balanced brackets of a single type, e.g. (()()). "
-    "Tests maintaining a single stack / matched parentheses without "
-    "interleaving different bracket types.",
+    "Dyck-1: properly balanced brackets of a single type, e.g. (()()).",
 )
 def gen_dyck(vocab, target_len, rng):
     # Need just 2 distinct vocab IDs: one for open, one for close
@@ -326,9 +324,7 @@ def gen_dyck(vocab, target_len, rng):
 @_register(
     "shuffle_dyck",
     "Typed Dyck language (Dyck-k): k independent bracket types whose open/close "
-    "tokens may interleave freely, e.g. ( [ ) { } ]. Tests maintaining multiple "
-    "parallel stacks and complex nesting. Truncated at target_len; the tail may "
-    "be unmatched, which is acceptable.",
+    "tokens may interleave freely, e.g. ( [ ) { } ].",
 )
 def gen_shuffle_dyck(vocab, target_len, rng,
                      k: int = 3, p_open: float = 0.5, max_depth: int = 8):
@@ -406,39 +402,77 @@ def gen_composite(vocab, target_len, rng):
 
 
 # Sample composition: random background + multiple pattern insertions
-def compose_sample(pattern_fn: Callable,
+def compose_sample(pattern_name: str,
+                   pattern_fn: Callable,
                    vocab: List[int],
                    max_context_length: int,
                    length_min: int,
                    length_max: int,
-                   rng: random.Random) -> Tuple[List[int], List[Dict]]:
+                   rng: random.Random,
+                   signal_floor: float = 0.5) -> Tuple[List[int], List[Dict]]:
     """Build a max-context-length vector with multiple pattern insertions.
 
-    The vector is initialized with uniformly-random vocab IDs, then the
-    same pattern generator is applied repeatedly to produce instances of
-    length ~ U[length_min, length_max]. Instances are spliced in at
-    non-overlapping positions separated by random gaps of length
-    U[1, length_max] (with a random initial offset of U[0, length_max]).
-    Greedy: keep inserting until the next instance would overflow.
+    For dyck and shuffle_dyck patterns, the entire sequence is a single valid
+    Dyck expression (no random background). For all other patterns, ONE pattern
+    instance is generated and then repeated (same exact tokens) at multiple
+    non-overlapping positions inside a random-noise background. The number of
+    repetitions is chosen so that the pattern occupies at least `signal_floor`
+    fraction of the context (default 0.5); this is what makes the pattern
+    learnable within a single sample. Different samples will see different
+    random pattern instances, but within one sample the pattern is always
+    identical.
 
     Returns
     -------
     sample : list[int]    -- length == max_context_length
     insertions : list[{"start": int, "length": int}]
     """
+    # For Dyck patterns, generate the entire sequence as one valid expression.
+    if pattern_name in ("dyck", "shuffle_dyck"):
+        sample = pattern_fn(vocab, max_context_length, rng)
+        insertions = [{"start": 0, "length": max_context_length}]
+        return sample, insertions
+
+    # Generate ONE pattern instance for this sample; we will repeat it.
+    plen = rng.randint(length_min, length_max)
+    pattern = pattern_fn(vocab, plen, rng)
+    plen = len(pattern)  # defensive: trust generator's actual length
+
+    # Decide how many copies to place. We aim for >= signal_floor coverage,
+    # but also ensure there is at least one gap token between copies.
+    max_copies = max(1, max_context_length // max(1, plen))
+    # Number of copies needed for signal_floor coverage (rounded up).
+    target_signal_tokens = int(max_context_length * signal_floor + 0.5)
+    min_copies_for_signal = -(-target_signal_tokens // plen)  # ceil div
+    # Need room for n copies + at least (n-1) gap tokens of 1 each.
+    # i.e. n*plen + (n-1) <= max_context_length  =>  n <= (L+1)/(plen+1)
+    fits_with_gaps = max(1, (max_context_length + 1) // (plen + 1))
+    n_copies = min(max_copies, max(min_copies_for_signal, 1))
+    n_copies = min(n_copies, fits_with_gaps)
+    n_copies = max(1, n_copies)
+
+    # Distribute the leftover (background) tokens across n_copies + 1 gaps.
+    total_signal = n_copies * plen
+    total_gap = max_context_length - total_signal
+    # n_copies + 1 gap slots (before first, between each pair, after last).
+    n_gaps = n_copies + 1
+    # Random non-negative integer composition of total_gap into n_gaps parts.
+    if n_gaps == 1:
+        gaps = [total_gap]
+    else:
+        # Pick n_gaps-1 cut points uniformly in [0, total_gap].
+        cuts = sorted(rng.randint(0, total_gap) for _ in range(n_gaps - 1))
+        gaps = [cuts[0]] + [cuts[i] - cuts[i - 1]
+                            for i in range(1, n_gaps - 1)] + [total_gap - cuts[-1]]
+
+    # Build the sample: random background filled with repeated pattern copies.
     sample = [rng.choice(vocab) for _ in range(max_context_length)]
     insertions: List[Dict] = []
-
-    cursor = rng.randint(0, length_max)  # initial gap of pure noise
-    while True:
-        plen = rng.randint(length_min, length_max)
-        if cursor + plen > max_context_length:
-            break
-        pat = pattern_fn(vocab, plen, rng)
-        sample[cursor:cursor + plen] = pat
+    cursor = gaps[0]
+    for i in range(n_copies):
+        sample[cursor:cursor + plen] = pattern
         insertions.append({"start": cursor, "length": plen})
-        # Random gap before the next instance (>=1 so instances stay separated).
-        cursor += plen + rng.randint(1, length_max)
+        cursor += plen + gaps[i + 1]
 
     return sample, insertions
 
@@ -500,6 +534,15 @@ def parse_args():
         default=10000,
         help="Print a progress line every N samples written (0 = disabled).",
     )
+    ap.add_argument(
+        "--signal-floor",
+        type=float,
+        default=0.5,
+        help="Fraction of each sample's context that must be covered by the "
+             "repeated pattern (the 'signal'). Default 0.5. Allowed range: "
+             "[0.10, 0.90]. Values < 0.5 or > 0.8 emit a warning. Does not "
+             "apply to dyck / shuffle_dyck (always 100%).",
+    )
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument(
         "--debug",
@@ -527,6 +570,21 @@ def main():
             f"length_max ({args.length_max}) <= max_context_length "
             f"({args.max_context_length})."
         )
+
+    # Validate signal-floor: hard bounds [0.10, 0.90], warn outside [0.5, 0.8].
+    if not (0.10 <= args.signal_floor <= 0.90):
+        raise SystemExit(
+            f"Invalid --signal-floor ({args.signal_floor}): must be in "
+            f"[0.10, 0.90]."
+        )
+    if args.signal_floor < 0.5:
+        print(f"WARNING: --signal-floor={args.signal_floor} is below 0.5; "
+              "patterns may be hard to learn (low signal-to-noise ratio).",
+              file=sys.stderr)
+    elif args.signal_floor > 0.8:
+        print(f"WARNING: --signal-floor={args.signal_floor} is above 0.8; "
+              "samples will be dominated by the pattern with very little "
+              "background noise.", file=sys.stderr)
 
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
     vocab_ids = get_filtered_vocab(
@@ -557,31 +615,33 @@ def main():
 
     # DEBUG: one composed sample per pattern, print and exit
     if args.debug:
-        print(f"# tokenizer        : {args.tokenizer}")
-        print(f"# filtered vocab   : {len(vocab_ids)} tokens "
-              f"(filter={args.token_filter})")
-        print(f"# length range     : [{args.length_min}, {args.length_max}]")
-        print(f"# max context len  : {args.max_context_length}")
-        for name, (desc, fn) in active_patterns.items():
-            sample, insertions = compose_sample(
-                fn, vocab_ids, args.max_context_length,
-                args.length_min, args.length_max, rng,
-            )
-            print(f"\n[{name}]  ({desc})")
-            print(f"  total length   = {len(sample)}")
-            print(f"  n_insertions   = {len(insertions)}")
-            print(f"  insertions     = {insertions[:5]}"
-                  f"{' ...' if len(insertions) > 5 else ''}")
-            # Show the first inserted pattern with a small context window.
-            if insertions:
-                s = insertions[0]["start"]
-                e = s + insertions[0]["length"]
-                ctx_l = max(0, s - 4)
-                ctx_r = min(len(sample), e + 4)
-                print(f"  first pattern  = {display(sample[s:e])}")
-                print(f"  with context   = {display(sample[ctx_l:ctx_r])}")
-            else:
-                print("  (no pattern fit; sample is pure background)")
+        debug_log_path = "debug.log"
+        with open(debug_log_path, "w", encoding="utf-8") as debug_file:
+            def debug_print(msg: str = ""):
+                print(msg)
+                debug_file.write(msg + "\n")
+
+            debug_print(f"# tokenizer        : {args.tokenizer}")
+            debug_print(f"# filtered vocab   : {len(vocab_ids)} tokens "
+                        f"(filter={args.token_filter})")
+            debug_print(f"# length range     : [{args.length_min}, {args.length_max}]")
+            debug_print(f"# max context len  : {args.max_context_length}")
+            for name, (desc, fn) in active_patterns.items():
+                sample, insertions = compose_sample(
+                    name, fn, vocab_ids, args.max_context_length,
+                    args.length_min, args.length_max, rng,
+                    signal_floor=args.signal_floor,
+                )
+                debug_print(f"\n[{name}]  ({desc})")
+                debug_print(f"  total length   = {len(sample)}")
+                debug_print(f"  n_insertions   = {len(insertions)}")
+                # Within a sample every insertion is the same instance,
+                # so printing the first one is sufficient.
+                if insertions:
+                    s = insertions[0]["start"]
+                    e = s + insertions[0]["length"]
+                    debug_print(f"  pattern        = {display(sample[s:e])}")
+                debug_print(f"  full sample    = {display(sample)}")
         return
 
     # Stream samples to disk. Open one shard at a time; when its token
@@ -635,8 +695,9 @@ def main():
         for name, (_desc, fn) in active_patterns.items():
             for _ in range(args.samples_per_pattern):
                 sample, insertions = compose_sample(
-                    fn, vocab_ids, args.max_context_length,
+                    name, fn, vocab_ids, args.max_context_length,
                     args.length_min, args.length_max, rng,
+                    signal_floor=args.signal_floor,
                 )
                 # Roll to a new shard if adding this sample would exceed
                 # the per-shard token budget (and the current shard is
