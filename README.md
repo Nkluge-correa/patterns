@@ -39,6 +39,33 @@ Letters in the schematics stand for *distinct vocabulary tokens*; concrete IDs a
   - hard bounds: `[0.10, 0.90]` — values outside this range raise `SystemExit`
   - soft bounds: a warning is printed if `F < 0.5` (signal too weak to be reliably learnable) or `F > 0.8` (samples dominated by the pattern with little noise to disambiguate it)
 
+## Output layout
+
+Each pattern writes its shards into a dedicated subdirectory named after the pattern, under the directory inferred from `--output`. For example, with `--output out/patterns.jsonl`:
+
+```
+out/
+  periodic/
+    patterns.0000.jsonl
+  palindrome/
+    patterns.0000.jsonl
+  dyck/
+    patterns.0000.jsonl
+  ...
+```
+
+Each record is a JSON line. By default it includes full metadata:
+
+```json
+{"input_ids": [...], "metadata": {"pattern_type": "periodic", "vocab_size": 50257, "max_context_length": 64, "range": [4, 16], "n_insertions": 3, "insertions": [{"start": 5, "length": 8}, ...]}}
+```
+
+With `--no-metadata`, only `input_ids` is written — useful when the files are consumed directly by a training pipeline:
+
+```json
+{"input_ids": [...]}
+```
+
 - **Dyck patterns (`dyck`, `shuffle_dyck`)** — handled as a special case. The entire sample is a *single* valid Dyck expression of length exactly `max_context_length`; there is no random background and no repetition. This is intentional: a Dyck expression is only meaningful as a whole (its brackets must balance globally), so splicing fragments into noise would destroy the structural property the pattern is supposed to test. Conceptually the "signal coverage" for Dyck samples is 100% and `--signal-floor` does not apply.
 
 ## How do I add a new pattern?
@@ -91,6 +118,19 @@ python generator.py \
   --max-context-length 32 \
   --length-min 4 --length-max 4 \
   --samples-per-pattern 1 \
+  --patterns all \
+  --debug
+```
+
+To verify only specific patterns, pass their names to `--patterns`:
+
+```bash
+python generator.py \
+  --tokenizer gpt2 \
+  --max-context-length 32 \
+  --length-min 4 --length-max 4 \
+  --samples-per-pattern 1 \
+  --patterns periodic palindrome dyck \
   --debug
 ```
 
@@ -104,6 +144,15 @@ python generator.py \
 A copy of the printed output is also written to `debug.logs` in the current working directory.
 
 For human-readable inspection, add `--mode tokens` to see the decoded strings instead of integer IDs.
+
+## Selecting patterns
+
+Use `--patterns` to control which patterns are generated:
+
+- `--patterns all` (default) — generate every registered pattern.
+- `--patterns periodic palindrome` — generate only the named patterns.
+
+The argument accepts one or more pattern names. An unknown name causes an immediate error listing the available choices.
 
 ## Conventions and gotchas
 

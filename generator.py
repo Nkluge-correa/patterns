@@ -31,21 +31,22 @@ Every emitted sample has exactly `--max-context-length` token IDs:
        greedily fits; their individual lengths are drawn from
        [length_min, length_max].
     3. Each sample contains one pattern type only.
+    4. For dyck and shuffle_dyck patterns, the entire sample is a single valid
+       Dyck expression (no random background).
 
 Output:
     * `--debug`: prints one composed sample per pattern (truncated for
       readability) and exits.
-    * otherwise: streams one JSON record per line to one or more sharded
-      `.jsonl` files. Each shard is capped at `--max-tokens-per-shard`
-      tokens (default 100_000_000) so very large datasets do not blow up
-      memory or single-file size. The base name supplied via `--output`
-      gets a `.NNNN.jsonl` suffix per shard (e.g. `patterns.0000.jsonl`,
-      `patterns.0001.jsonl`, ...). Each line has:
+    * otherwise: streams one JSON record per line to per-pattern sharded
+      `.jsonl` files inside a subdirectory named after the pattern. Each
+      shard is capped at `--max-tokens-per-shard` tokens (default
+      100_000_000). The base name supplied via `--output` gets a `.NNNN.jsonl`
+      suffix per shard (e.g. `periodic/patterns.0000.jsonl`). Each line has:
         - `input_ids` : list[int]  (the full max-context-length vector)
         - `metadata`  : {pattern_type, vocab_size, max_context_length,
                          range, n_insertions, insertions:[{start,length}]}
-
-Usage:
+          (omitted when --no-metadata is set)
+          
     python generator.py \
         --tokenizer gpt2 \
         --mode tokens \
@@ -53,6 +54,7 @@ Usage:
         --max-context-length 64 \
         --length-min 2 --length-max 16 \
         --samples-per-pattern 10 \
+        --patterns all \
         --output patterns.jsonl \
         --debug
 """
@@ -523,10 +525,11 @@ def parse_args():
              "output. Adds '.gz' to each shard's filename.",
     )
     ap.add_argument(
-        "--lean-metadata",
+        "--no-metadata",
         action="store_true",
-        help="Drop the verbose 'insertions' list from per-record metadata to "
-             "shrink output (still keeps n_insertions, pattern_type, etc.).",
+        help="Omit metadata entirely from each record. When set, every sample "
+             "is stored as {\"input_ids\": list[int]} only, ready for direct "
+             "training use.",
     )
     ap.add_argument(
         "--progress-every",
@@ -550,10 +553,13 @@ def parse_args():
         help="Print one random sample for every registered pattern and exit.",
     )
     ap.add_argument(
-        "--only-random",
-        action="store_true",
-        help="Generate only the unstructured 'random' pattern (skip all "
-             "structured patterns). Useful for building a baseline corpus.",
+        "--patterns",
+        nargs="+",
+        default=["all"],
+        metavar="PATTERN",
+        help="One or more pattern names to generate, or 'all' for every "
+             "registered pattern (default). Example: --patterns periodic "
+             "palindrome dyck.",
     )
     return ap.parse_args()
 
@@ -600,12 +606,17 @@ def main():
 
     rng = random.Random(args.seed)
 
-    # Restrict the active pattern set if --only-random was passed. The
-    # 'random' generator returns iid samples, so composing it just yields
-    # an unstructured background of the requested length.
-    active_patterns = (
-        {"random": PATTERNS["random"]} if args.only_random else PATTERNS
-    )
+    # Resolve the active pattern set from --patterns.
+    if args.patterns == ["all"]:
+        active_patterns = PATTERNS
+    else:
+        unknown = [p for p in args.patterns if p not in PATTERNS]
+        if unknown:
+            raise SystemExit(
+                f"Unknown pattern(s): {', '.join(unknown)}. "
+                f"Available: {', '.join(PATTERNS)}"
+            )
+        active_patterns = {p: PATTERNS[p] for p in args.patterns}
 
     def display(ids: List[int]):
         """Render a sample for human inspection in --debug mode."""
@@ -653,8 +664,11 @@ def main():
         ext = ".jsonl"
     gz_suffix = ".gz" if args.gzip else ""
 
-    def shard_path(idx: int) -> str:
-        return f"{base}.{idx:04d}{ext}{gz_suffix}"
+    def shard_path(pattern_name: str, idx: int) -> str:
+        out_dir = os.path.join(os.path.dirname(base) or ".", pattern_name)
+        os.makedirs(out_dir, exist_ok=True)
+        stem = os.path.basename(base)
+        return os.path.join(out_dir, f"{stem}.{idx:04d}{ext}{gz_suffix}")
 
     def open_shard(path: str):
         # 1 MiB write buffer to amortize syscall overhead on big runs.
@@ -685,14 +699,17 @@ def main():
             raise SystemExit("Aborted by user.")
 
     n_written = 0
-    shard_idx = 0
-    shard_tokens = 0
-    shard_records = 0
-    f = open_shard(shard_path(shard_idx))
-    shard_paths = [shard_path(shard_idx)]
+    all_shard_paths: List[str] = []
     t0 = time.time()
-    try:
-        for name, (_desc, fn) in active_patterns.items():
+
+    for name, (_desc, fn) in active_patterns.items():
+        shard_idx = 0
+        shard_tokens = 0
+        shard_records = 0
+        current_path = shard_path(name, shard_idx)
+        all_shard_paths.append(current_path)
+        f = open_shard(current_path)
+        try:
             for _ in range(args.samples_per_pattern):
                 sample, insertions = compose_sample(
                     name, fn, vocab_ids, args.max_context_length,
@@ -705,24 +722,27 @@ def main():
                 if (shard_records > 0 and
                         shard_tokens + len(sample) > args.max_tokens_per_shard):
                     f.close()
-                    print(f"  shard {shard_path(shard_idx)}: "
+                    print(f"  shard {current_path}: "
                           f"{shard_records} records, {shard_tokens} tokens")
                     shard_idx += 1
                     shard_tokens = 0
                     shard_records = 0
-                    f = open_shard(shard_path(shard_idx))
-                    shard_paths.append(shard_path(shard_idx))
+                    current_path = shard_path(name, shard_idx)
+                    all_shard_paths.append(current_path)
+                    f = open_shard(current_path)
 
-                meta = {
-                    "pattern_type": name,
-                    "vocab_size": len(vocab_ids),
-                    "max_context_length": args.max_context_length,
-                    "range": [args.length_min, args.length_max],
-                    "n_insertions": len(insertions),
-                }
-                if not args.lean_metadata:
-                    meta["insertions"] = insertions
-                record = {"input_ids": sample, "metadata": meta}
+                if args.no_metadata:
+                    record = {"input_ids": sample}
+                else:
+                    meta = {
+                        "pattern_type": name,
+                        "vocab_size": len(vocab_ids),
+                        "max_context_length": args.max_context_length,
+                        "range": [args.length_min, args.length_max],
+                        "n_insertions": len(insertions),
+                        "insertions": insertions,
+                    }
+                    record = {"input_ids": sample, "metadata": meta}
                 f.write(json.dumps(record, separators=(",", ":")) + "\n")
                 shard_tokens += len(sample)
                 shard_records += 1
@@ -737,13 +757,13 @@ def main():
                           f"({pct:.1f}%) at {rate:,.0f} samples/s, "
                           f"shard={shard_idx} "
                           f"shard_tokens={shard_tokens:,}")
-    finally:
-        f.close()
-        print(f"  shard {shard_path(shard_idx)}: "
-              f"{shard_records} records, {shard_tokens} tokens")
+        finally:
+            f.close()
+            print(f"  shard {current_path}: "
+                  f"{shard_records} records, {shard_tokens} tokens")
 
     print(f"Wrote {n_written} samples across {len(active_patterns)} patterns "
-          f"to {len(shard_paths)} shard(s).")
+          f"to {len(all_shard_paths)} shard(s).")
 
 
 if __name__ == "__main__":
