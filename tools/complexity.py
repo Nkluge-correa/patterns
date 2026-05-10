@@ -15,12 +15,12 @@ directory, or in their common parent when multiple directories are
 processed at once.
 
 Usage:
-  python tools/complexity.py \
-    --paths ./data \
-    --output-dir ./data/results/ \
-    --vocab-size 256 \
-    --per-sample-limit 1000 \
-    --compresslevel 9 \
+  python tools/complexity.py \\
+    --paths ./data \\
+    --output-dir ./data/results/ \\
+    --vocab-size 256 \\
+    --per-sample-limit 1000 \\
+    --compresslevel 9 \\
     --plot
 """
 

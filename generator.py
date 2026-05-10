@@ -48,18 +48,18 @@ Output:
           (omitted when --no-metadata is set)
 
 Usage:
-    python generator.py \
-        --patterns all \
-        --vocab-size 256 \
-        --max-context-length 1024 \
-        --length-min 2 --length-max 32 \
-        --samples-per-pattern 1000 \
-        --patterns all \
-        --output patterns.jsonl \
-        --output-dir ./data \
-        --max-tokens-per-shard 100000000 \
-        --no-metadata \
-        --signal-floor 0.9 \
+    python generator.py \\
+        --patterns all \\
+        --vocab-size 256 \\
+        --max-context-length 1024 \\
+        --length-min 2 --length-max 32 \\
+        --samples-per-pattern 1000 \\
+        --patterns all \\
+        --output patterns.jsonl \\
+        --output-dir ./data \\
+        --max-tokens-per-shard 100000000 \\
+        --no-metadata \\
+        --signal-floor 0.9 \\
         --seed 42
 
 Use `--debug` to print one sample per pattern and exit.
@@ -290,7 +290,11 @@ def main(args):
 
 if __name__ == "__main__":
     
-    ap = argparse.ArgumentParser(description=__doc__)
+    ap = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    
     ap.add_argument(
         "--vocab-size",
         type=int,
