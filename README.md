@@ -184,17 +184,28 @@ The argument accepts one or more pattern names. An unknown name causes an immedi
 
 ## Where things live
 
-| Concern                        | Location in `generator.py`          |
-|--------------------------------|---------------------------------------------|
-| Registry dict                  | `PATTERNS: Dict[str, Tuple[str, Callable]]` |
-| Decorator                      | `_register(name, description)`              |
-| Length helper                  | `_pad_to(out, target_len, vocab, rng)`      |
-| Distinct-symbol helper         | `sample_distinct(vocab, k, rng)`            |
-| Composition into a full sample | `compose_sample(...)`                       |
-| Debug printer                  | the `if args.debug:` branch in `main()`     |
+| Concern                                        | File                                                   |
+|------------------------------------------------|--------------------------------------------------------|
+| Registry dict + `@register` decorator          | [`registry.py`](registry.py)                           |
+| Vocab filtering + `pad_to` + `sample_distinct` | [`utils.py`](utils.py)                                 |
+| Composition into a full sample                 | [`compose.py`](compose.py)                             |
+| Structural patterns                            | [`generators/structural.py`](generators/structural.py) |
+| Counting patterns                              | [`generators/counting.py`](generators/counting.py)     |
+| Dyck / bracket patterns                        | [`generators/dyck.py`](generators/dyck.py)             |
+| Baseline / control patterns                    | [`generators/baseline.py`](generators/baseline.py)     |
+| Pattern registration (imports all modules)     | [`generators/__init__.py`](generators/__init__.py)     |
+| CLI + `main()`                                 | [`generator.py`](generator.py)                         |
+| Complexity measurement tools                   | [`tools/`](tools)                                      |
+| Background, motivation, and theory             | [`logs/`](logs)                                        |
 
-## Disclaimer
+### `/tools`
 
-Yes, this is a monolithic monstrosity of a file. We can refactor later if it gets unwieldy, but for now it's nice to have everything in one place (at least for me).
+Contains utilities for analyzing generated datasets:
 
-That's it.
+- **`complexity.py`** — Measures gzip-based complexity metrics for pattern dataset JSONL files. Computes both global gzip complexity (compressed / uncompressed bytes over the full token stream) and mean per-sample complexity (average compression ratio per individual sample). Results are written as `.complexity.yaml` files for each analyzed directory. Useful for characterizing the information density and learnability of pattern distributions.
+
+### `/logs`
+
+Contains background documentation and theoretical foundations:
+
+- **`README.md`** — Explains the motivation for pre-pretraining on structured patterns, surveys relevant literature, and discusses methods for measuring pattern complexity using Kolmogorov complexity approximation (via gzip compression ratio). Provides context for why these synthetic patterns are useful for enhancing downstream language model performance.
