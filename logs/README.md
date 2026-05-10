@@ -1,0 +1,205 @@
+# Patterns Are All You Need
+
+## Main Idea
+
+Using patterns as a "surrogate language" in "pre-pretraining" can significantly enhance the performance of language models on downstream tasks. In essence, this approach involves teaching the model to understand simple and complex patterns before exposing them to natural language. This exposure allows the model to learn useful representations related to sequence modeling, which can be beneficial for various downstream tasks (e.g., language understanding, reasoning, etc.).
+
+Some papers already explored this idea:
+
+* [Program Synthesis using Natural Language](https://arxiv.org/abs/1509.00413)
+* [Analysing Mathematical Reasoning Abilities of Neural Models](https://arxiv.org/abs/1904.01557)
+* [Pre-Training a Language Model Without Human Language](https://arxiv.org/abs/2012.11995)
+* [Injecting structural hints: Using language models to study inductive biases in language learning](https://arxiv.org/abs/2304.13060)
+* [LifeGPT: Topology-Agnostic Generative Pretrained Transformer Model for Cellular Automata](https://arxiv.org/abs/2409.12182)
+
+The most promising results come from the last two papers:
+
+* [Training Language Models via Neural Cellular Automata](https://arxiv.org/html/2603.10055v1) -> Uses Neural Cellular Automata (NCA) to generate complex patterns for pre-pretraining. Just 160M tokens of NCA-generated data can lead to significant improvements in downstream performance.
+* [Between Circuits and Chomsky: Pre-pretraining on Formal Languages Imparts Linguistic Biases](https://arxiv.org/html/2502.19249v2) -> Uses formal languages (e.g., Dyck languages) to pre-pretrain language models, showing that this can impart linguistic biases and improve performance on downstream tasks.
+
+Bottom line:
+
+> "Richly structured non-linguistic data could also be effective for teaching models useful capabilities, and may be more efficient to learn from than natural language data."
+
+## Why this is cool for low-resource / data constrained settings
+
+Data is not always abundant. For many low-resource languages, domains, or tasks, we may not have access to large amounts of natural language data. In such cases, pre-pretraining on synthetic patterns can provide a valuable alternative. By learning to recognize and generate patterns, the model can develop a strong foundation in sequence modeling, which can then cascade into improved performance on downstream tasks, even with limited natural language data. Since this type of data can be generated in "unlimited" quantities, it can be a powerful tool for enhancing model performance in data-constrained settings.
+
+## What we would like to investigate
+
+* What types of patterns are most effective for pre-pretraining?
+* How does the complexity of the patterns affect downstream performance?
+* How does the amount of pattern data used for pre-pretraining impact downstream performance?
+* How does pre-pretraining on patterns compare to pre-pretraining on natural language data in terms of downstream performance?
+
+Other things that would be interesting to investigate:
+
+* How model arquitecture (e.g. transformer vs. hybrid models) interacts with pre-pretraining on patterns.
+* How different types of downstream tasks (e.g. language understanding vs. mathematical reasoning) are affected by pre-pretraining on patterns.
+* How different language families (e.g. english vs. chinese) are affected by pre-pretraining on patterns.
+
+## How we can measure complexity of patterns
+
+The most straightforward way to measure the complexity of a pattern is to look at its [Kolmogorov complexity](https://liamzebedee.com/maths/papers/kolomogrov-tables-random-numbers.pdf) (i.e., a good approximation of the length of the shortest program that can generate the pattern, since $K$ is uncomputable).
+
+## Example
+
+* Generate a sequence of tokens using some function (e.g. a neural cellular automata, a formal language, etc.).
+* Serialize and compress the sequence using **gzip**.
+* We can measure the **complexity** of a sequence by the ratio of compressed size to original size:
+
+$$\text{complexity} = \frac{\text{compressed bytes}}{\text{original bytes}}$$
+
+* Or, we can also talk about the compression ratio, which is the inverse of complexity:
+
+$$\text{compression ratio} = \frac{\text{original bytes}}{\text{compressed bytes}}$$
+
+The intuition is that gzip compression approximates **Kolmogorov complexity**:
+
+* Highly compressible sequences contain regular, predictable structure.
+* Poorly compressible sequences are more chaotic and information-rich.
+
+Note: ***"matching the complexity of synthetic pre-training data to the target domain maximizes transfer."**** This means that if we want to improve performance on natural language tasks, we should pre-pretrain on patterns that have a similar level of complexity to natural language data ([source](https://arxiv.org/abs/2603.10055)).
+
+## Experimental setup
+
+A proper ablation study would involve:
+
+* Training a language model from scratch on a fixed text dataset for a fixed number of steps / tokens.
+  * 10 billion tokens of natural language data could be a good place to start.
+  * [Fineweb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu#smaller-sample-versions) is a good candidate for the text dataset since it is relatively small and clean.
+  * [Open-Web-Math](https://huggingface.co/datasets/open-web-math/open-web-math) is a good candidate for the text dataset if we want to test on more math-heavy data.
+  * [CodeParrot](https://huggingface.co/datasets/codeparrot/codeparrot-clean) is a good candidate for the text dataset if we want to test on more code-heavy data.
+  * [FineWeb-2](https://huggingface.co/datasets/HuggingFaceFW/fineweb-2) is a good candidate for the text dataset if we want to test on more than just English data.
+    * Suggestions of languages that are very different from one another:
+      * English (Indo-European, SVO word order, Latin script)
+      * Chinese (Sino-Tibetan, SVO word order, logographic script)
+      * Arabic (Afro-Asiatic, VSO word order, abjad script)
+      * Hindi (Indo-European, SOV word order, Devanagari script)
+      * Japanese (Japonic, SOV word order, mixed script)
+* Pre-pretraining the model on a fixed amount of pattern data before training on the text dataset.
+* Compare how our evaluations differ as we tweak the level of complexity of the pre-pretraining patterns, and amount of pre-pretraining data used.
+* We could also ablate different proportions of the pre-pretraining data (e.g. 0%, 25%, 50%) and natural language data (e.g. 100%, 75%, 50%) to see how the two interact.
+* We should keep comparisons fair by controlling for the total amount of training data (pattern + natural language) and total number of training steps / tokens across all conditions.
+
+Note: Is very important to control all other aspects of the training process (e.g. model architecture, hyperparameters, etc.) to ensure that any differences in performance can be attributed to the pre-pretraining patterns.
+
+* For model architecture, we use a simple transformer-based language model (e.g. Llama2) to keep things manageable.
+* For sizes, we can test a coulple of scales (e.g., 500M, 1,5B, 3B) to see how the effects of pre-pretraining on patterns scale with model size.
+  * We expect that the benefits of pre-pretraining on patterns will be more pronounced for smaller models, and decrease as model size increases (see [source](https://arxiv.org/html/2603.10055v1#S5)).
+* A softmax-attention transformer vs. a hybrid model (e.g., Olmo3-Hybrid) would be interesting to compare, but maybe we can save that for a follow-up project.
+* For the pre-pretraining patterns, we don't really need a tokenizer since we can just generate sequences of token IDs directly.
+* When we move to natural language pretraining, we should:
+    * Use a standard tokenizer from HuggingFace.
+    * We re-initialize (and re-size) the model's embedding layer to match the tokenizer's vocabulary size, and randomly initialize the new parameters.
+    * If we follow the results and insights from [source](https://arxiv.org/html/2603.10055v1#S5), we should only maintain the attention weights accross the pre-pretraining and pre-training phases, and re-initialize all other parameters (e.g. feedforward layers, layer norms, etc.) to ensure that any benefits we see are due to the attention patterns learned during pre-pretraining. ***"[...] attention layers learn general-purpose mechanisms for tracking dependencies and inferring latent rules, while MLP layers specialize in storing domain-specific patterns and statistics. This division may explain why attention transfers universally from NCA to language, whereas MLP weights can introduce interference when the source and target domains differ substantially."***
+
+* Training hyperparameters:
+
+| Hyperparameter              | Pre-pre-training | Pre-training                                  |
+|-----------------------------|------------------|-----------------------------------------------|
+| Effective batch size        | 16               | 512                                           |
+| Sequence length             | 1024 tokens      | 1024 tokens                                   |
+| Learning rate               | $1\times10^{-4}$ | $5\times10^{-4}$                              |
+| LR schedule                 | Cosine w/ warmup | Cosine w/ warmup                              |
+| Warmup steps (% total)      | 10%              | 10%                                           |
+| Weight decay                | None             | $1\times10^{-4}$                              |
+| Gradient clipping           | None             | 1.0                                           |
+
+Note: We should run every training condition with multiple random seeds (e.g. 3-5) to ensure that our results are robust and not due to random chance.
+
+## How can we measure the "usefulness" of patterns for pre-pretraining?
+
+Performance. We can measure a couple of things:
+
+* Final perplexity on a held out validation set of natural language data. We can also use different types of natural language data (e.g. normal text vs. code vs. math) to see how pre-pretraining on patterns affects the performance on different types of downstream data.
+* Convergence speed during pre-training. We can track the training loss and perplexity on the natural language data during pre-training to see if pre-pretraining on patterns leads to faster convergence.
+* Simple benchmarks that have good "signal" at early stages of training (e.g. [HellaSwag](https://arxiv.org/abs/1905.07830), [PIQA](https://arxiv.org/abs/1911.11641), [LAMBADA](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf), etc.). This allows us to track the improvement in downstream performance.
+
+We could but would be more complicated:
+
+* Finetune on a downstream task (e.g. [GSM8K](https://arxiv.org/abs/2205.12646)) and evaluate performance on that task. This would be more troublesome to do, but not too difficult if we stick to a simple SFT and tasks that have a good train/test split.
+
+## What patterns should we use for pre-pretraining?
+
+### Baseline patterns
+
+These are simple patterns that can be generated with a small amount of code and are intended to serve as unstructured baselines or controls. Random will by definition have the highest complexity, while identity will have the lowest complexity (zero-entropy floor):
+
+| Pattern                   | Schematic example          | What it probes                                                                  |
+|---------------------------|----------------------------|---------------------------------------------------------------------------------|
+| `random`                  | `qZ7ξ%`                    | Uniformly random tokens — unstructured baseline / control.                      |
+| `identity`                | `AAAAAA`                   | Single-token repetition (zero-entropy floor).                                   |
+
+### Simple patterns
+
+These are simple patterns that can be generated with a small amount of code and are itended to (maybe?) teach the model some basic capabilities related to sequence modeling:
+
+| Pattern                   | Schematic example          | What it probes                                                                  |
+|---------------------------|----------------------------|---------------------------------------------------------------------------------|
+| `periodic`                | `ABCABCABC`                | Fixed-period repetition (regular language).                                     |
+| `palindrome`              | `ABCCBA`                   | Mirror symmetry around the center (CFG-recognizable).                           |
+| `copy`                    | `ABCD ABCD ABCD`           | Block duplication / verbatim copying.                                           |
+| `reverse`                 | `ABCD \| DCBA`             | Source + reverse separated by an explicit delimiter.                            |
+| `counting_anbn`           | `AAABBB`                   | Equal counts of two symbols (CFG counting `a^n b^n`).                           |
+| `counting_anbncn`         | `AAABBBCCC`                | Equal counts of three symbols (mildly context-sensitive `a^n b^n c^n`).         |
+| `nested`                  | `ABCDDCBA`                 | Recursive palindromic structure from `S → a S a`.                               |
+| `interleaving`            | `ABABAB` or `AABBAABB`     | Alternation / block-interleaving of two symbols.                                |
+| `permutation_cycle`       | `ABCD BCDA CDAB DABC`      | Cyclic permutations of a base block.                                            |
+| `hierarchical`            | `ABAB CCCC ABAB`           | Local + global structure mixed at multiple scales.                              |
+| `noisy_palindrome`        | `ABCXCBA` (~10% corrupted) | Palindrome under random token corruption (robustness to noise).                 |
+| `composite_mirror_repeat` | `ABCCBA ABCCBA`            | Multi-rule composition: a small palindrome repeated periodically.               |
+
+### Complex patterns
+
+#### Dyck languages
+
+Dyck languages are formal languages that consist of balanced strings of parentheses (or brackets) of various types. They are a classic example of context-free languages and are often used to test the ability of models to learn hierarchical structures and long-range dependencies. The simplest Dyck language (Dyck-1) consists of balanced parentheses of a single type, while more complex versions (Dyck-k) involve multiple types of parentheses that can interleave freely.
+
+| Pattern                   | Schematic example          | What it probes                                                                  |
+|---------------------------|----------------------------|---------------------------------------------------------------------------------|
+| `dyck`                    | `(()())`                   | Dyck-1: balanced brackets of a single type.                                     |
+| `shuffle_dyck`            | `( [ ) { } ]`              | Typed Dyck-k: k bracket types whose open/close tokens may interleave freely.    |
+
+#### Neural Cellular Automata (NCA)
+
+NCA is a generalization of classical cellular automata (Wolfram, [1984](https://www.sciencedirect.com/science/article/pii/0167278984902458)), where the update rule is parametrized as a neural network, allowing the dynamics to be diversely sampled rather than hand-designed.
+
+> "NCAs, despite having simple local rules, can generate arbitrarily complex structures when rolled out over long time horizons, making them a promising source of synthetic training data." ([source](https://arxiv.org/html/2603.10055v1))
+
+**Methodology (see [source](https://arxiv.org/html/2603.10055v1))**
+
+The methodology uses 2D neural cellular automata (NCA) to generate sequences with varying levels of complexity.
+
+* The system operates on a **12x12 grid** with periodic boundaries and **10 possible cell states**. Each cell is encoded as a **10-dimensional one-hot vector**.
+  - ***"[...] constraining the space to k=2 may paradoxically help by concentrating samples on dynamics with more consistent, transferable structure."***
+* Cell updates are determined by a neural network ($f_\theta$), which looks at each cell’s **3x3 neighborhood** and predicts the next state using a softmax distribution with small stochastic noise $(\tau = 10^{-3})$:
+
+$$c_i(t+1) \sim \mathrm{softmax}\left(f_{\theta}(c_{\mathcal{N}(i)}(t))/\tau\right)$$
+
+* The transition model consists of:
+
+  * a **3×3 convolution layer** with 4 channels,
+  * followed by a **cell-wise MLP** with hidden size 16 and ReLU activation,
+  * producing logits over the 10 possible next states.
+
+To create diverse behaviors:
+
+* For every rollout, both the neural network parameters ($\theta$) and the initial grid states are randomly sampled.
+* Initial cell states are drawn uniformly from (${0,\dots,9}$).
+* This produces dynamics ranging from stable and predictable patterns to highly chaotic ones.
+* On the NCA paper, the only selected trajectories for pre-pretraining were those with a compression ratio of <= 2.0 (i.e., complexity >= 0.5).
+
+In terms of tokenization:
+
+* We tokenize each grid using non-overlapping 2×2 patches, following the patch-based tokenization for vision transformers (Dosovitskiy et al., 2021). Each patch contains four cells in {0,…,9} and is mapped bijectively to an integer token, yielding a fixed vocabulary of 104 patch tokens. 
+* We serialize each timestep in row-major order with `<grid>` and `</grid>` delimiters, and concatenate timesteps to form sequences of up to 1024 tokens.
+
+Source: https://github.com/danihyunlee/nca-pre-pretraining
+
+## Why Should Any of This Work?
+
+**Patterns will force genuine rule learning.** Unlike natural language, this kind of data contain no semantic shortcuts or co-occurrence priors. Every sequence is generated by a hidden deterministic rule, so the model cannot rely on memorization or semantic associations (see https://arxiv.org/abs/2303.09540). To predict the next token, it must infer the underlying rule from context. This makes these patterns a valuable training signal for in-context learning.
+**This is the same core mechanism used in language modeling.** Prior work suggests that language models implicitly infer latent concepts or rules within a sequence. Predicting text requires conditioning on those inferred structures. Similar mechanisms appear in math, code, and formal algorithmic tasks. The hypothesis is that pre-pretraining strengthens this general-purpose inference ability (see https://arxiv.org/abs/2406.04216).
+**Transfer occurs through attention-based in-context learning circuits.** Transferable knowledge is primarily stored in attention layers, not MLPs. They connect this to “induction heads,” attention circuits known to support in-context learning by copying and extending patterns from earlier tokens. These learned attention mechanisms can then transfer to downstream domains (see https://arxiv.org/abs/2209.11895).
+**Deterministic systems can still produce learnable structure (epiplexity).** Even though these patterns are deterministic, they can generate complex signals that finite-capacity models cannot simply brute-force simulate. According to the concept of “epiplexity,” models must learn higher-level abstractions and representations to predict these systems efficiently. Training on diverse and complex patterns may therefore help models learn abstract representations that are also useful for natural language (see https://arxiv.org/html/2601.03220).
