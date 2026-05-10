@@ -1,6 +1,8 @@
-# Patterns
+# Patterns Are All You Need
 
-Patterns live in a single registry inside [generator.py](generator.py). Each pattern is a synthetic structural template inspired by formal language theory (+ the vices from my head); together they probe different capabilities a sequence model may need (locality, symmetry, counting, recursion, agreement, etc.). All output token IDs are drawn from a HuggingFace `AutoTokenizer` vocabulary so the resulting samples plug into any standard tokenization pipeline.
+This is a simple codebase for generating synthetic sequence data with structural patterns. The patterns are designed to probe various capabilities a sequence model may need (locality, symmetry, counting, recursion, agreement, etc.) and can be used for "pre-pretraining" before exposing the model to natural language.
+
+The codebase is split across a few focused modules — see [Where things live](#where-things-live) below.
 
 ## The pattern catalogue
 
@@ -70,7 +72,7 @@ With `--no-metadata`, only `input_ids` is written — useful when the files are 
 
 ## How do I add a new pattern?
 
-Adding a new pattern is a three-step process: write a generator function, decorate it with `@_register`, and (optionally) verify with `--debug`.
+Adding a new pattern is a three-step process: write a generator function in the right module, decorate it with `@register`, and (optionally) verify with `--debug`.
 
 ### 1. The generator contract
 
@@ -84,16 +86,30 @@ def gen_<name>(vocab: list[int], target_len: int, rng: random.Random) -> list[in
 Rules:
 
 - **Input** — `vocab` is the filtered list of token IDs to draw from, `target_len` is the desired sequence length (drawn from `[length_min, length_max]` by the caller), and `rng` is a seeded `random.Random` instance. **Always use `rng`**, never the `random` module directly, so runs stay reproducible under `--seed`.
-- **Output** — a `list[int]` of length **exactly** `target_len`. The easiest way to guarantee this is to build the structural prefix and then call the helper `_pad_to(out, target_len, vocab, rng)` at the end. `_pad_to` truncates if too long and tail-pads with random vocab IDs if too short.
+- **Output** — a `list[int]` of length **exactly** `target_len`. The easiest way to guarantee this is to build the structural prefix and then call the helper `pad_to(out, target_len, vocab, rng)` at the end. `pad_to` truncates if too long and tail-pads with random vocab IDs if too short.
 - **No side effects** — do not print, do not write files, do not mutate `vocab`.
 - **Use `sample_distinct(vocab, k, rng)`** when you need `k` distinct token IDs (e.g. for the `A`, `B`, `C` symbols of `A^n B^n C^n`). It falls back gracefully if the vocab is smaller than `k`.
 
-### 2. Register the pattern
+### 2. Write the generator in the appropriate module
 
-Decorate the function with `@_register(name, description)`:
+Place the function in whichever file under `generators/` best matches its theme:
+
+| File                       | Patterns it contains                       |
+|----------------------------|--------------------------------------------|
+| `generators/structural.py` | symmetry, repetition, positional structure |
+| `generators/counting.py`   | symbol-counting patterns                   |
+| `generators/dyck.py`       | bracket / Dyck languages                   |
+| `generators/baseline.py`   | unstructured controls                      |
+
+If none of the existing files fits, create a new module (e.g. `generators/arithmetic.py`) and add one import line to `generators/__init__.py`.
+
+Decorate the function with `@register(name, description)`:
 
 ```python
-@_register(
+from registry import register
+from utils import pad_to, sample_distinct
+
+@register(
     "my_pattern",
     "One-sentence description of what structural property this pattern tests "
     "(e.g. 'long-range agreement', 'modular arithmetic').",
@@ -102,11 +118,11 @@ def gen_my_pattern(vocab, target_len, rng):
     # build the structural part
     a, b = sample_distinct(vocab, 2, rng)
     out = [a, b] * (target_len // 2)
-    # always end with _pad_to to guarantee exact length
-    return _pad_to(out, target_len, vocab, rng)
+    # always end with pad_to to guarantee exact length
+    return pad_to(out, target_len, vocab, rng)
 ```
 
-The decorator inserts an entry into the global `PATTERNS` dict, so the new pattern is automatically picked up by `compose_sample`, the debug printer, and the main write loop. **No other file or function needs to change.**
+The decorator inserts an entry into the global `PATTERNS` dict, so the new pattern is automatically picked up by `compose_sample`, the debug printer, and the main write loop. **No other file needs to change** (unless you created a new module, in which case add one import to `generators/__init__.py`).
 
 Naming convention: lowercase, snake_case, descriptive of the structural property (`palindrome`, `counting_anbn`, `shuffle_dyck`). The name appears verbatim in each record's `metadata.pattern_type`.
 
@@ -156,7 +172,7 @@ The argument accepts one or more pattern names. An unknown name causes an immedi
 
 ## Conventions and gotchas
 
-- **Parity / divisibility** — many patterns have natural length constraints (palindromes need an even length, `A^n B^n C^n` needs a multiple of 3). Do **not** raise on bad lengths; build the largest valid prefix you can and let `_pad_to` fill the rest. See `gen_anbn` and `gen_nested` for examples.
+- **Parity / divisibility** — many patterns have natural length constraints (palindromes need an even length, `A^n B^n C^n` needs a multiple of 3). Do **not** raise on bad lengths; build the largest valid prefix you can and let `pad_to` fill the rest. See `gen_anbn` and `gen_nested` for examples.
 
 - **Very short `target_len`** — `length_min` is validated to be `>= 2`, but a generator may still be called with `target_len == 2`. Make sure your function returns *something* sensible (even if it degrades to trivial structure). `_pad_to` will rescue length mismatches but will not fix logical bugs. **This will almost never be the case because we will train with lengths much longer than 2.**
 
@@ -168,17 +184,15 @@ The argument accepts one or more pattern names. An unknown name causes an immedi
 
 ## Where things live
 
-| Concern                        | Location in `generator.py`          |
-|--------------------------------|---------------------------------------------|
-| Registry dict                  | `PATTERNS: Dict[str, Tuple[str, Callable]]` |
-| Decorator                      | `_register(name, description)`              |
-| Length helper                  | `_pad_to(out, target_len, vocab, rng)`      |
-| Distinct-symbol helper         | `sample_distinct(vocab, k, rng)`            |
-| Composition into a full sample | `compose_sample(...)`                       |
-| Debug printer                  | the `if args.debug:` branch in `main()`     |
+| Concern                                        | File                                                   |
+|------------------------------------------------|--------------------------------------------------------|
+| Registry dict + `@register` decorator          | [`registry.py`](registry.py)                           |
+| Vocab filtering + `pad_to` + `sample_distinct` | [`utils.py`](utils.py)                                 |
+| Composition into a full sample                 | [`compose.py`](compose.py)                             |
+| Structural patterns                            | [`generators/structural.py`](generators/structural.py) |
+| Counting patterns                              | [`generators/counting.py`](generators/counting.py)     |
+| Dyck / bracket patterns                        | [`generators/dyck.py`](generators/dyck.py)             |
+| Baseline / control patterns                    | [`generators/baseline.py`](generators/baseline.py)     |
+| Pattern registration (imports all modules)     | [`generators/__init__.py`](generators/__init__.py)     |
+| CLI + `main()`                                 | [`generator.py`](generator.py)                         |
 
-## Disclaimer
-
-Yes, this is a monolithic monstrosity of a file. We can refactor later if it gets unwieldy, but for now it's nice to have everything in one place (at least for me).
-
-That's it.
