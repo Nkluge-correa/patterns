@@ -6,28 +6,31 @@ The codebase is split across a few focused modules — see [Where things live](#
 
 ## The pattern catalogue
 
-The 16 currently registered patterns and what each is meant to test:
+The 18 currently registered patterns and what each is meant to test:
 
-| Pattern                   | Schematic example          | What it probes                                                                  |
-|---------------------------|----------------------------|---------------------------------------------------------------------------------|
-| `periodic`                | `ABCABCABC`                | Fixed-period repetition (regular language).                                     |
-| `palindrome`              | `ABCCBA`                   | Mirror symmetry around the center (CFG-recognizable).                           |
-| `copy`                    | `ABCD ABCD ABCD`           | Block duplication / verbatim copying.                                           |
-| `reverse`                 | `ABCD \| DCBA`             | Source + reverse separated by an explicit delimiter.                            |
-| `counting_anbn`           | `AAABBB`                   | Equal counts of two symbols (CFG counting `a^n b^n`).                           |
-| `counting_anbncn`         | `AAABBBCCC`                | Equal counts of three symbols (mildly context-sensitive `a^n b^n c^n`).         |
-| `nested`                  | `ABCDDCBA`                 | Recursive palindromic structure from `S → a S a`.                               |
-| `interleaving`            | `ABABAB` or `AABBAABB`     | Alternation / block-interleaving of two symbols.                                |
-| `permutation_cycle`       | `ABCD BCDA CDAB DABC`      | Cyclic permutations of a base block.                                            |
-| `hierarchical`            | `ABAB CCCC ABAB`           | Local + global structure mixed at multiple scales.                              |
-| `noisy_palindrome`        | `ABCXCBA` (~10% corrupted) | Palindrome under random token corruption (robustness to noise).                 |
-| `dyck`                    | `(()())`                   | Dyck-1: balanced brackets of a single type.                                     |
-| `shuffle_dyck`            | `( [ ) { } ]`              | Typed Dyck-k: k bracket types whose open/close tokens may interleave freely.    |
-| `random`                  | `qZ7ξ%`                    | Uniformly random tokens — unstructured baseline / control.                      |
-| `identity`                | `AAAAAA`                   | Single-token repetition (zero-entropy floor).                                   |
-| `composite_mirror_repeat` | `ABCCBA ABCCBA`            | Multi-rule composition: a small palindrome repeated periodically.               |
 
-Letters in the schematics stand for *distinct vocabulary tokens*; concrete IDs are sampled per call so different samples use different surface tokens.
+| Pattern                   | Schematic example                   | What it probes                                                                  |
+|---------------------------|-------------------------------------|---------------------------------------------------------------------------------|
+| `periodic`                | `ABCABCABC`                         | Fixed-period repetition (regular language).                                     |
+| `palindrome`              | `ABCCBA`                            | Mirror symmetry around the center (CFG-recognizable).                           |
+| `copy`                    | `ABCD ABCD ABCD`                    | Block duplication / verbatim copying.                                           |
+| `reverse`                 | `ABCD \| DCBA`                      | Source + reverse separated by an explicit delimiter.                            |
+| `counting_anbn`           | `AAABBB`                            | Equal counts of two symbols (CFG counting `a^n b^n`).                           |
+| `counting_anbncn`         | `AAABBBCCC`                         | Equal counts of three symbols (mildly context-sensitive `a^n b^n c^n`).         |
+| `nested`                  | `ABCDDCBA`                          | Recursive palindromic structure from `S → a S a`.                               |
+| `interleaving`            | `ABABAB` or `AABBAABB`              | Alternation / block-interleaving of two symbols.                                |
+| `permutation_cycle`       | `ABCD BCDA CDAB DABC`               | Cyclic permutations of a base block.                                            |
+| `hierarchical`            | `ABAB CCCC ABAB`                    | Local + global structure mixed at multiple scales.                              |
+| `noisy_palindrome`        | `ABCXCBA` (~10% corrupted)          | Palindrome under random token corruption (robustness to noise).                 |
+| `dyck`                    | `(()())`                            | Dyck-1: balanced brackets of a single type.                                     |
+| `shuffle_dyck`            | `( [ ) { } ]`                       | Typed Dyck-k: k bracket types whose open/close tokens may interleave freely.    |
+| `random`                  | `qZ7ξ%`                             | Uniformly random tokens — unstructured baseline / control.                      |
+| `identity`                | `AAAAAA`                            | Single-token repetition (zero-entropy floor).                                   |
+| `composite_mirror_repeat` | `ABCCBA ABCCBA`                     | Multi-rule composition: a small palindrome repeated periodically.               |
+| `mixer`                   | `[periodic][palindrome][etc]`       | Context filled with consecutive segments from different pattern types.          |
+| `nca`                     | `<grid> . </grid> <grid> . </grid>` | Stochastic neural cellular automaton rollout.                                   |
+
+* Letters in the schematics stand for *distinct vocabulary tokens*; concrete IDs are sampled per call so different samples use different surface tokens.
 
 ## How samples are composed
 
@@ -70,6 +73,8 @@ With `--no-metadata`, only `input_ids` is written — useful when the files are 
 
 - **Dyck patterns (`dyck`, `shuffle_dyck`)** — handled as a special case. The entire sample is a *single* valid Dyck expression of length exactly `max_context_length`; there is no random background and no repetition. This is intentional: a Dyck expression is only meaningful as a whole (its brackets must balance globally), so splicing fragments into noise would destroy the structural property the pattern is supposed to test. Conceptually the "signal coverage" for Dyck samples is 100% and `--signal-floor` does not apply.
 
+- **`nca`** — also a whole-context pattern. Each sample is a single rollout of a stochastic neural cellular automaton (a tiny CNN with toroidal padding and per-cell categorical sampling) whose weights are sampled fresh per sample, so every sequence reflects a different dynamical rule. The rollout is serialised as consecutive frames `[<grid>, row-major cells, </grid>]`; the first two vocab IDs (`0`, `1`) are reserved as the delimiters and cell states map to the remaining IDs. The 8×8 default grid yields a frame size of 66 tokens, so `--max-context-length` must be at least `132` (two full frames); all powers of 2 ≥ 256 fit comfortably. Any leftover slack after the last complete frame is padded with random cell-state IDs. `--signal-floor` does not apply.
+
 ## How do I add a new pattern?
 
 Adding a new pattern is a three-step process: write a generator function in the right module, decorate it with `@register`, and (optionally) verify with `--debug`.
@@ -100,6 +105,7 @@ Place the function in whichever file under `generators/` best matches its theme:
 | `generators/counting.py`   | symbol-counting patterns                   |
 | `generators/dyck.py`       | bracket / Dyck languages                   |
 | `generators/baseline.py`   | unstructured controls                      |
+| `generators/nca.py`        | neural cellular automaton rollouts         |
 
 If none of the existing files fits, create a new module (e.g. `generators/arithmetic.py`) and add one import line to `generators/__init__.py`.
 
@@ -193,6 +199,7 @@ The argument accepts one or more pattern names. An unknown name causes an immedi
 | Counting patterns                              | [`generators/counting.py`](generators/counting.py)     |
 | Dyck / bracket patterns                        | [`generators/dyck.py`](generators/dyck.py)             |
 | Baseline / control patterns                    | [`generators/baseline.py`](generators/baseline.py)     |
+| Neural cellular automaton patterns             | [`generators/nca.py`](generators/nca.py)               |
 | Pattern registration (imports all modules)     | [`generators/__init__.py`](generators/__init__.py)     |
 | CLI + `main()`                                 | [`generator.py`](generator.py)                         |
 | Complexity measurement tools                   | [`tools/`](tools)                                      |

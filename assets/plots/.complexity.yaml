@@ -1,0 +1,382 @@
+# gzip complexity metadata
+# generated: 2026-05-11T13:41:38
+n_datasets: 18
+datasets:
+  composite_mirror_repeat:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 311955
+      gzip_complexity: 0.304644
+      compression_ratio: 3.282525
+      space_saving: 0.695356
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.336432
+    pattern_richness:
+      n_evaluated: 1000
+      mean: 0.317057
+      std: 0.056410
+    elapsed_seconds: 7.08
+  copy:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 315530
+      gzip_complexity: 0.308135
+      compression_ratio: 3.245333
+      space_saving: 0.691865
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.339535
+    pattern_richness:
+      n_evaluated: 1000
+      mean: 0.315602
+      std: 0.042788
+    elapsed_seconds: 6.92
+  counting_anbn:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 311669
+      gzip_complexity: 0.304364
+      compression_ratio: 3.285537
+      space_saving: 0.695636
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.335703
+    pattern_richness:
+      n_evaluated: 1000
+      mean: 0.281203
+      std: 0.022207
+    elapsed_seconds: 7.02
+  counting_anbncn:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 313989
+      gzip_complexity: 0.306630
+      compression_ratio: 3.261261
+      space_saving: 0.693370
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.337491
+    pattern_richness:
+      n_evaluated: 1000
+      mean: 0.308242
+      std: 0.024191
+    elapsed_seconds: 6.98
+  dyck:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 214894
+      gzip_complexity: 0.209857
+      compression_ratio: 4.765140
+      space_saving: 0.790143
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.220347
+    pattern_richness:
+      n_evaluated: 1000
+      mean: 0.737863
+      std: 0.003172
+    elapsed_seconds: 7.50
+  hierarchical:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 313507
+      gzip_complexity: 0.306159
+      compression_ratio: 3.266275
+      space_saving: 0.693841
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.337782
+    pattern_richness:
+      n_evaluated: 1000
+      mean: 0.307153
+      std: 0.026016
+    elapsed_seconds: 7.08
+  identity:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 312870
+      gzip_complexity: 0.305537
+      compression_ratio: 3.272925
+      space_saving: 0.694463
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.334739
+    pattern_richness:
+      n_evaluated: 1000
+      mean: 0.202150
+      std: 0.021864
+    elapsed_seconds: 7.30
+  interleaving:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 311228
+      gzip_complexity: 0.303934
+      compression_ratio: 3.290192
+      space_saving: 0.696066
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.335310
+    pattern_richness:
+      n_evaluated: 1000
+      mean: 0.259060
+      std: 0.022254
+    elapsed_seconds: 7.04
+  mixer:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 454447
+      gzip_complexity: 0.443796
+      compression_ratio: 2.253288
+      space_saving: 0.556204
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.481101
+    pattern_richness:
+      n_evaluated: 1000
+      mean: 0.415952
+      std: 0.008695
+    elapsed_seconds: 7.14
+  nca:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 482654
+      gzip_complexity: 0.471342
+      compression_ratio: 2.121603
+      space_saving: 0.528658
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.554388
+    pattern_richness:
+      n_evaluated: 1000
+      mean: 0.356437
+      std: 0.001713
+    elapsed_seconds: 6.01
+  nested:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 320799
+      gzip_complexity: 0.313280
+      compression_ratio: 3.192030
+      space_saving: 0.686720
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.345179
+    pattern_richness:
+      n_evaluated: 1000
+      mean: 0.362941
+      std: 0.056786
+    elapsed_seconds: 6.91
+  noisy_palindrome:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 326100
+      gzip_complexity: 0.318457
+      compression_ratio: 3.140141
+      space_saving: 0.681543
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.349289
+    pattern_richness:
+      n_evaluated: 1000
+      mean: 0.361365
+      std: 0.056226
+    elapsed_seconds: 6.90
+  palindrome:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 329222
+      gzip_complexity: 0.321506
+      compression_ratio: 3.110363
+      space_saving: 0.678494
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.352443
+    pattern_richness:
+      n_evaluated: 1000
+      mean: 0.358019
+      std: 0.055304
+    elapsed_seconds: 6.92
+  periodic:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 311287
+      gzip_complexity: 0.303991
+      compression_ratio: 3.289569
+      space_saving: 0.696009
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.335038
+    pattern_richness:
+      n_evaluated: 1000
+      mean: 0.270846
+      std: 0.023371
+    elapsed_seconds: 6.99
+  permutation_cycle:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 322437
+      gzip_complexity: 0.314880
+      compression_ratio: 3.175814
+      space_saving: 0.685120
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.346400
+    pattern_richness:
+      n_evaluated: 1000
+      mean: 0.301618
+      std: 0.028781
+    elapsed_seconds: 7.17
+  random:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 1024345
+      gzip_complexity: 1.000337
+      compression_ratio: 0.999663
+      space_saving: -0.000337
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 1.022461
+    pattern_richness:
+      n_evaluated: 1000
+      mean: 0.350181
+      std: 0.000068
+    elapsed_seconds: 5.86
+  reverse:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 327132
+      gzip_complexity: 0.319465
+      compression_ratio: 3.130235
+      space_saving: 0.680535
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.350943
+    pattern_richness:
+      n_evaluated: 1000
+      mean: 0.359325
+      std: 0.055358
+    elapsed_seconds: 7.32
+  shuffle_dyck:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 486734
+      gzip_complexity: 0.475326
+      compression_ratio: 2.103819
+      space_saving: 0.524674
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.431438
+    pattern_richness:
+      n_evaluated: 1000
+      mean: 0.424304
+      std: 0.002598
+    elapsed_seconds: 6.15

@@ -10,6 +10,39 @@ Computes, for each dataset directory:
       average of (compressed / uncompressed) computed independently per
       sample over up to --per-sample-limit records.
 
+  pattern_richness_score  [auxiliary metric]
+      Composite interestingness score in [0, 1] computed per sample and
+      averaged across up to --per-sample-limit records.  It combines four
+      sub-metrics with fixed weights:
+
+        normalized_ngram_entropy  (weight 0.35)
+            Shannon entropy of bigrams, normalised by log2(unique bigrams).
+            Range [0, 1].  Low -> repetitive; high -> diverse.
+            Unlike gzip, this is sensitive to statistical motif reuse and
+            is stable on shorter sequences.
+
+        motif_richness  (weight 0.30)
+            Fraction of distinct n-grams (n = 2..8) that appear more than
+            once.  Range [0, 1].  High -> reusable repeated substructures;
+            low -> random noise or fully unique subsequences.
+
+        long_range_repetition  (weight 0.25)
+            Fraction of length-16 windows whose exact content reappears at
+            least 32 positions later in the sequence.  Range [0, 1].
+            Captures callbacks, recurring motifs, and distant structural
+            reuse.
+
+        sequence_novelty  (weight 0.10, inverted)
+            Fraction of 4-grams that are unique (unique / total).  Near 1
+            means mostly-unique content; low means repetitive.  The score
+            uses (1 - novelty) so repetition is rewarded, penalising pure
+            random noise that scores high on entropy alone.
+
+      The combined score rewards structure and reuse while penalising both
+      trivial repetition and pure randomness. I think this is helpful to help
+      differentiate between datasets that have high gzip complexity due to 
+      rich patterns vs. those that have a lot of noise injected.
+
 Results are written as a .complexity.yaml file inside each analyzed
 directory, or in their common parent when multiple directories are
 processed at once.
@@ -31,6 +64,8 @@ import os
 import sys
 import tempfile
 import time
+from collections import Counter
+from math import log2
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -149,6 +184,101 @@ def per_sample_complexity(
     return complexities, len(complexities)
 
 
+# Pattern richness metrics
+def _ngrams(seq: List[int], n: int) -> List[tuple]:
+    return [tuple(seq[i:i + n]) for i in range(len(seq) - n + 1)]
+
+
+def _normalized_ngram_entropy(seq: List[int], n: int = 2) -> float:
+    grams = _ngrams(seq, n)
+    if not grams:
+        return 0.0
+    counts = Counter(grams)
+    total = len(grams)
+    entropy = 0.0
+    for c in counts.values():
+        p = c / total
+        entropy -= p * log2(p)
+    max_entropy = log2(len(counts))
+    if max_entropy == 0:
+        return 0.0
+    return entropy / max_entropy
+
+
+def _motif_richness(seq: List[int], min_len: int = 2, max_len: int = 8) -> float:
+    repeated = 0
+    total = 0
+    for n in range(min_len, max_len + 1):
+        grams = [tuple(seq[i:i + n]) for i in range(len(seq) - n + 1)]
+        counts = Counter(grams)
+        total += len(counts)
+        repeated += sum(1 for c in counts.values() if c > 1)
+    if total == 0:
+        return 0.0
+    return repeated / total
+
+
+def _long_range_repetition(
+    seq: List[int], window: int = 16, min_distance: int = 32
+) -> float:
+    seen: dict = {}
+    matches = 0
+    total = 0
+    for i in range(len(seq) - window + 1):
+        chunk = tuple(seq[i:i + window])
+        if chunk in seen and i - seen[chunk] >= min_distance:
+            matches += 1
+        seen[chunk] = i
+        total += 1
+    if total == 0:
+        return 0.0
+    return matches / total
+
+
+def _sequence_novelty(seq: List[int], n: int = 4) -> float:
+    grams = _ngrams(seq, n)
+    if not grams:
+        return 0.0
+    return len(set(grams)) / len(grams)
+
+
+def pattern_richness_score(seq: List[int]) -> float:
+    """Composite interestingness score in [0, 1].
+
+    Rewards local diversity (normalised bigram entropy), motif reuse,
+    and long-range organisation while penalising trivial repetition and
+    pure randomness.
+    """
+    entropy = _normalized_ngram_entropy(seq, n=2)
+    motifs = _motif_richness(seq)
+    long_range = _long_range_repetition(seq)
+    novelty = _sequence_novelty(seq, n=4)
+    return (
+        0.35 * entropy
+        + 0.30 * motifs
+        + 0.25 * long_range
+        + 0.10 * (1.0 - novelty)
+    )
+
+
+def per_sample_richness(
+    paths: List[Path],
+    dtype,
+    max_samples: Optional[int],
+) -> Tuple[List[float], int]:
+    """Compute pattern_richness_score for up to *max_samples* records.
+
+    Returns (scores, n_evaluated).
+    """
+    scores: List[float] = []
+    for record in _iter_records(paths):
+        tokens = list(np.asarray(record["input_ids"], dtype=dtype))
+        scores.append(pattern_richness_score(tokens))
+        if max_samples is not None and len(scores) >= max_samples:
+            break
+    return scores, len(scores)
+
+
 # Per-directory analysis
 def analyze_directory(
     directory: Path,
@@ -189,6 +319,12 @@ def analyze_directory(
     )
     mean_per_sample = float(np.mean(sample_complexities)) if sample_complexities else float("nan")
 
+    richness_scores, n_richness = per_sample_richness(
+        files, dtype, max_samples=per_sample_limit
+    )
+    mean_richness = float(np.mean(richness_scores)) if richness_scores else float("nan")
+    std_richness = float(np.std(richness_scores)) if richness_scores else float("nan")
+
     elapsed = time.time() - t0
     n_tokens = n_uncompressed // np.dtype(dtype).itemsize
 
@@ -211,13 +347,20 @@ def analyze_directory(
             "n_evaluated": n_evaluated,
             "mean_gzip_complexity": mean_per_sample,
         },
+        "pattern_richness": {
+            "n_evaluated": n_richness,
+            "mean": mean_richness,
+            "std": std_richness,
+        },
         "sample_complexities": sample_complexities if store_sample_complexities else None,
+        "richness_scores": richness_scores if store_sample_complexities else None,
         "elapsed_seconds": elapsed,
     }
 
     if verbose:
         g = result["global"]
         ps = result["per_sample"]
+        pr = result["pattern_richness"]
         print(f"    tokens              : {n_tokens:,}")
         print(
             f"    global complexity   : {g['gzip_complexity']:.4f}  "
@@ -227,6 +370,10 @@ def analyze_directory(
         print(
             f"    per-sample (n={n_evaluated:,}): "
             f"{ps['mean_gzip_complexity']:.4f}"
+        )
+        print(
+            f"    pattern richness (n={pr['n_evaluated']:,}): "
+            f"mean={pr['mean']:.4f}  std={pr['std']:.4f}"
         )
         print(f"    elapsed             : {elapsed:.1f}s")
 
@@ -259,6 +406,11 @@ def write_metadata(
             f.write(f"      n_evaluated: {r['per_sample']['n_evaluated']}\n")
             mps = r["per_sample"]["mean_gzip_complexity"]
             f.write(f"      mean_gzip_complexity: {mps:.6f}\n")
+            pr = r["pattern_richness"]
+            f.write("    pattern_richness:\n")
+            f.write(f"      n_evaluated: {pr['n_evaluated']}\n")
+            f.write(f"      mean: {pr['mean']:.6f}\n")
+            f.write(f"      std: {pr['std']:.6f}\n")
             f.write(f"    elapsed_seconds: {r['elapsed_seconds']:.2f}\n")
     return out_path
 

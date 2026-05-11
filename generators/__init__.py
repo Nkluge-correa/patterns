@@ -5,4 +5,4 @@ shared PATTERNS registry. Add a new module here and import it below to make
 its patterns visible to the CLI automatically.
 """
 
-from generators import baseline, counting, dyck, structural
+from generators import baseline, counting, dyck, mixer, nca, structural

@@ -15,6 +15,7 @@ Available patterns:
     - permutation_cycle: Cyclic permutations (e.g. ABCD BCDA CDAB DABC).
     - hierarchical: Local + global structure (e.g. ABAB CCCC ABAB).
     - noisy_palindrome: Palindrome with ~10% random corruption.
+    - nca: 2D grid evolved by a random Neural Cellular Automaton rule.
     - dyck: Single bracket type (e.g. (()())).
     - shuffle_dyck: Multiple interleaving bracket types (e.g. ( [ ) { } ]).
     - random: Uniformly random tokens.
@@ -33,6 +34,10 @@ Every emitted sample has exactly `--max-context-length` token IDs:
     3. Each sample contains one pattern type only.
     4. For dyck and shuffle_dyck patterns, the entire sample is a single valid
        Dyck expression (no random background).
+    5. For mixer, the context is filled with consecutive segments from different 
+       pattern types (excluding dyck, shuffle_dyck, and random).
+    6. For nca, the entire context is a single NCA rollout flattened into a
+       1D token stream (padded to max_context_length if needed).
 
 Output:
     * `--debug`: prints one composed sample per pattern (truncated for
@@ -59,7 +64,9 @@ Usage:
         --output-dir ./data \\
         --max-tokens-per-shard 100000000 \\
         --no-metadata \\
-        --signal-floor 0.9 \\
+        --signal-floor 0.8 \\
+        --min-complexity 0.2 \\
+        --max-attempts 100 \\
         --seed 42
 
 Use `--debug` to print one sample per pattern and exit.
@@ -164,6 +171,8 @@ def main(args):
                     name, fn, vocab_ids, args.max_context_length,
                     args.length_min, args.length_max, rng,
                     signal_floor=args.signal_floor,
+                    min_complexity=args.min_complexity,
+                    max_attempts=args.max_attempts,
                 )
                 debug_print(f"\n[{name}]  ({desc})")
                 debug_print(f"  total length   = {len(sample)}")
@@ -237,6 +246,8 @@ def main(args):
                     name, fn, vocab_ids, args.max_context_length,
                     args.length_min, args.length_max, rng,
                     signal_floor=args.signal_floor,
+                    min_complexity=args.min_complexity,
+                    max_attempts=args.max_attempts,
                 )
                 # Roll to a new shard if adding this sample would exceed
                 # the per-shard token budget (and the current shard is
@@ -357,6 +368,26 @@ if __name__ == "__main__":
              "repeated pattern (the 'signal'). Default 0.5. Allowed range: "
              "[0.10, 0.90]. Values < 0.5 or > 0.8 emit a warning. Does not "
              "apply to dyck / shuffle_dyck (always 100%%).",
+    )
+    ap.add_argument(
+        "--min-complexity",
+        type=float,
+        default=None,
+        metavar="THRESHOLD",
+        help="Reject samples whose gzip complexity (compressed / original bytes) "
+             "is below this threshold and regenerate until it is met. "
+             "Range (0, 1]. Higher values select for less compressible / more "
+             "random-looking samples; lower values keep more regular, structured "
+             "samples. Default: disabled (no filtering).",
+    )
+    ap.add_argument(
+        "--max-attempts",
+        type=int,
+        default=100,
+        metavar="N",
+        help="Maximum number of regeneration attempts per sample when "
+             "--min-complexity is set. Raises an error if the threshold "
+             "is never met within this budget. Default: 100.",
     )
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument(

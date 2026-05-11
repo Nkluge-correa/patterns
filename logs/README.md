@@ -135,20 +135,21 @@ These are simple patterns that can be generated with a small amount of code and 
 
 These are simple patterns that can be generated with a small amount of code and are itended to (maybe?) teach the model some basic capabilities related to sequence modeling:
 
-| Pattern                   | Schematic example          | What it probes                                                                  |
-|---------------------------|----------------------------|---------------------------------------------------------------------------------|
-| `periodic`                | `ABCABCABC`                | Fixed-period repetition (regular language).                                     |
-| `palindrome`              | `ABCCBA`                   | Mirror symmetry around the center (CFG-recognizable).                           |
-| `copy`                    | `ABCD ABCD ABCD`           | Block duplication / verbatim copying.                                           |
-| `reverse`                 | `ABCD \| DCBA`             | Source + reverse separated by an explicit delimiter.                            |
-| `counting_anbn`           | `AAABBB`                   | Equal counts of two symbols (CFG counting `a^n b^n`).                           |
-| `counting_anbncn`         | `AAABBBCCC`                | Equal counts of three symbols (mildly context-sensitive `a^n b^n c^n`).         |
-| `nested`                  | `ABCDDCBA`                 | Recursive palindromic structure from `S → a S a`.                               |
-| `interleaving`            | `ABABAB` or `AABBAABB`     | Alternation / block-interleaving of two symbols.                                |
-| `permutation_cycle`       | `ABCD BCDA CDAB DABC`      | Cyclic permutations of a base block.                                            |
-| `hierarchical`            | `ABAB CCCC ABAB`           | Local + global structure mixed at multiple scales.                              |
-| `noisy_palindrome`        | `ABCXCBA` (~10% corrupted) | Palindrome under random token corruption (robustness to noise).                 |
-| `composite_mirror_repeat` | `ABCCBA ABCCBA`            | Multi-rule composition: a small palindrome repeated periodically.               |
+| Pattern                   | Schematic example               | What it probes                                                                  |
+|---------------------------|---------------------------------|---------------------------------------------------------------------------------|
+| `periodic`                | `ABCABCABC`                     | Fixed-period repetition (regular language).                                     |
+| `palindrome`              | `ABCCBA`                        | Mirror symmetry around the center (CFG-recognizable).                           |
+| `copy`                    | `ABCD ABCD ABCD`                | Block duplication / verbatim copying.                                           |
+| `reverse`                 | `ABCD \| DCBA`                  | Source + reverse separated by an explicit delimiter.                            |
+| `counting_anbn`           | `AAABBB`                        | Equal counts of two symbols (CFG counting `a^n b^n`).                           |
+| `counting_anbncn`         | `AAABBBCCC`                     | Equal counts of three symbols (mildly context-sensitive `a^n b^n c^n`).         |
+| `nested`                  | `ABCDDCBA`                      | Recursive palindromic structure from `S → a S a`.                               |
+| `interleaving`            | `ABABAB` or `AABBAABB`          | Alternation / block-interleaving of two symbols.                                |
+| `permutation_cycle`       | `ABCD BCDA CDAB DABC`           | Cyclic permutations of a base block.                                            |
+| `hierarchical`            | `ABAB CCCC ABAB`                | Local + global structure mixed at multiple scales.                              |
+| `noisy_palindrome`        | `ABCXCBA` (~10% corrupted)      | Palindrome under random token corruption (robustness to noise).                 |
+| `composite_mirror_repeat` | `ABCCBA ABCCBA`                 | Multi-rule composition: a small palindrome repeated periodically.               |
+| `mixer`                   | `[periodic][palindrome][etc]`   | Context filled with consecutive segments from different pattern types.          |
 
 ### Complex patterns
 
@@ -156,50 +157,58 @@ These are simple patterns that can be generated with a small amount of code and 
 
 Dyck languages are formal languages that consist of balanced strings of parentheses (or brackets) of various types. They are a classic example of context-free languages and are often used to test the ability of models to learn hierarchical structures and long-range dependencies. The simplest Dyck language (Dyck-1) consists of balanced parentheses of a single type, while more complex versions (Dyck-k) involve multiple types of parentheses that can interleave freely.
 
-| Pattern                   | Schematic example          | What it probes                                                                  |
-|---------------------------|----------------------------|---------------------------------------------------------------------------------|
-| `dyck`                    | `(()())`                   | Dyck-1: balanced brackets of a single type.                                     |
-| `shuffle_dyck`            | `( [ ) { } ]`              | Typed Dyck-k: k bracket types whose open/close tokens may interleave freely.    |
+| Pattern                   | Schematic example                   | What it probes                                                                  |
+|---------------------------|-------------------------------------|---------------------------------------------------------------------------------|
+| `dyck`                    | `(()())`                            | Dyck-1: balanced brackets of a single type.                                     |
+| `shuffle_dyck`            | `( [ ) { } ]`                       | Typed Dyck-k: k bracket types whose open/close tokens may interleave freely.    |
 
 #### Neural Cellular Automata (NCA)
 
 NCA is a generalization of classical cellular automata (Wolfram, [1984](https://www.sciencedirect.com/science/article/pii/0167278984902458)), where the update rule is parametrized as a neural network, allowing the dynamics to be diversely sampled rather than hand-designed.
 
+| Pattern                   | Schematic example                   | What it probes                                                                  |
+|---------------------------|-------------------------------------|---------------------------------------------------------------------------------|
+| `nca`                     | `<grid> . </grid> <grid> . </grid>` | Stochastic neural cellular automaton rollout.                                   |
+
 > "NCAs, despite having simple local rules, can generate arbitrarily complex structures when rolled out over long time horizons, making them a promising source of synthetic training data." ([source](https://arxiv.org/html/2603.10055v1))
 
-**Methodology (see [source](https://arxiv.org/html/2603.10055v1))**
+**Methodology (this implementation)**
 
-The methodology uses 2D neural cellular automata (NCA) to generate sequences with varying levels of complexity.
+We use 2D neural cellular automata (NCA) to generate sequences whose complexity is controlled by the universal gzip-based filter shared with every other pattern (`--min-complexity`).
 
-* The system operates on a **12x12 grid** with periodic boundaries and **10 possible cell states**. Each cell is encoded as a **10-dimensional one-hot vector**.
-  - ***"[...] constraining the space to k=2 may paradoxically help by concentrating samples on dynamics with more consistent, transferable structure."***
-* Cell updates are determined by a neural network ($f_\theta$), which looks at each cell’s **3x3 neighborhood** and predicts the next state using a softmax distribution with small stochastic noise $(\tau = 10^{-3})$:
+* The system operates on an **8×8 grid** with periodic (toroidal) boundaries and **8 possible cell states**. Each cell is encoded as an **8-dimensional one-hot vector**.
+  - The grid is intentionally tiny so a handful of rollout steps fills typical context windows (256–4096 tokens).
+  - 8 cell states comfortably fit inside the project's 256-ID vocabulary budget while leaving room for two reserved delimiter tokens.
+* Cell updates are determined by a neural network ($f_\theta$), which looks at each cell's **3×3 neighborhood** (with circular padding) and predicts the next state using a softmax distribution with temperature $\tau = 1.0$:
 
 $$c_i(t+1) \sim \mathrm{softmax}\left(f_{\theta}(c_{\mathcal{N}(i)}(t))/\tau\right)$$
 
 * The transition model consists of:
 
-  * a **3×3 convolution layer** with 4 channels,
-  * followed by a **cell-wise MLP** with hidden size 16 and ReLU activation,
-  * producing logits over the 10 possible next states.
+  * a **3×3 convolution layer** with 4 channels (`VALID` padding applied to a circularly-padded input),
+  * a **1×1 convolution** lifting to 16 channels,
+  * **ReLU**,
+  * a final **1×1 convolution** producing logits over the 8 possible next states.
 
 To create diverse behaviors:
 
-* For every rollout, both the neural network parameters ($\theta$) and the initial grid states are randomly sampled.
-* Initial cell states are drawn uniformly from (${0,\dots,9}$).
+* For every rollout, both the neural network parameters ($\theta$) and the initial grid states are sampled fresh from a torch RNG seeded deterministically from the caller's `random.Random` instance, so every sample reflects a different dynamical rule while the overall run remains reproducible under `--seed`.
+* Weights are drawn from a LeCun-style normal ($\mathrm{std} = 1/\sqrt{\mathrm{fan\_in}}$); biases are zero.
+* Initial cell states are sampled per cell from a softmax over an 8-dimensional standard-normal vector (i.e. a spatially-uniform categorical prior whose class probabilities vary across rules).
+* The first **4 rollout steps are discarded as burn-in** so the recorded trajectory captures the rule's attractor rather than the random initial condition.
 * This produces dynamics ranging from stable and predictable patterns to highly chaotic ones.
-* On the NCA paper, the only selected trajectories for pre-pretraining were those with a compression ratio of <= 2.0 (i.e., complexity >= 0.5).
+* Complexity filtering is delegated to the shared `--min-complexity` flag (gzip compression ratio of the final flattened sample); the same threshold (≥ 0.5 ≈ compression ratio ≤ 2.0) used in the NCA paper can be reproduced by passing `--min-complexity 0.5 --patterns nca`.
 
 In terms of tokenization:
 
-* We tokenize each grid using non-overlapping 2×2 patches, following the patch-based tokenization for vision transformers (Dosovitskiy et al., 2021). Each patch contains four cells in {0,…,9} and is mapped bijectively to an integer token, yielding a fixed vocabulary of 104 patch tokens. 
-* We serialize each timestep in row-major order with `<grid>` and `</grid>` delimiters, and concatenate timesteps to form sequences of up to 1024 tokens.
-
-Source: https://github.com/danihyunlee/nca-pre-pretraining
+* We use **direct per-cell tokens** rather than the 2×2 patch tokenization from the reference paper (Lee et al. [2026](https://arxiv.org/html/2603.10055v1)). The project's shared vocabulary is the contiguous range $[0, 256)$, and the paper's patch scheme would inflate the effective vocab (e.g. $10^4 = 10000$ patch tokens for $k=10$ states) far beyond that budget. Each cell state maps bijectively to a single token ID via a simple offset: `cell_state s -> vocab[s + 2]`. So state `0 → 2`, state `1 → 3`, ..., state `7 → 9`. With an 8×8 grid this yields $64$ cell tokens per frame.
+* We serialize each timestep in **row-major order** (left-to-right, top-to-bottom) wrapped in reserved `<grid>` / `</grid>` delimiter tokens — the first two vocab IDs (`0`, `1`) — so the per-frame payload is $1 + 64 + 1 = 66$ tokens. The delimiters and the cell states live in disjoint ID ranges, so a frame is unambiguously parseable.
+* Each NCA sample uses only IDs `{0, 1}` (delimiters) and `{2..9}` (cell states), which trivially fits inside the project's `[0, 256)` vocabulary budget.
+* Frames are concatenated to fill `--max-context-length`. The minimum context is **two full frames (132 tokens)**; all powers of two >= 256 fit at least 3 frames (256 -> 3, 512 -> 7, 1024 -> 15, 2048 -> 31, 4096 -> 62). We pack as many *complete* frames as fit and never emit a half-frame (which would leave an orphan delimiter); any residual tail (fewer than 66 tokens) is filled with random cell-state IDs so the sample lands at exactly `--max-context-length`.
 
 ## Why Should Any of This Work?
 
-**Patterns will force genuine rule learning.** Unlike natural language, this kind of data contain no semantic shortcuts or co-occurrence priors. Every sequence is generated by a hidden deterministic rule, so the model cannot rely on memorization or semantic associations (see https://arxiv.org/abs/2303.09540). To predict the next token, it must infer the underlying rule from context. This makes these patterns a valuable training signal for in-context learning.
-**This is the same core mechanism used in language modeling.** Prior work suggests that language models implicitly infer latent concepts or rules within a sequence. Predicting text requires conditioning on those inferred structures. Similar mechanisms appear in math, code, and formal algorithmic tasks. The hypothesis is that pre-pretraining strengthens this general-purpose inference ability (see https://arxiv.org/abs/2406.04216).
-**Transfer occurs through attention-based in-context learning circuits.** Transferable knowledge is primarily stored in attention layers, not MLPs. They connect this to “induction heads,” attention circuits known to support in-context learning by copying and extending patterns from earlier tokens. These learned attention mechanisms can then transfer to downstream domains (see https://arxiv.org/abs/2209.11895).
-**Deterministic systems can still produce learnable structure (epiplexity).** Even though these patterns are deterministic, they can generate complex signals that finite-capacity models cannot simply brute-force simulate. According to the concept of “epiplexity,” models must learn higher-level abstractions and representations to predict these systems efficiently. Training on diverse and complex patterns may therefore help models learn abstract representations that are also useful for natural language (see https://arxiv.org/html/2601.03220).
+* **Patterns will force genuine rule learning.** Unlike natural language, this kind of data contain no semantic shortcuts or co-occurrence priors. Every sequence is generated by a hidden deterministic rule, so the model cannot rely on memorization or semantic associations (see https://arxiv.org/abs/2303.09540). To predict the next token, it must infer the underlying rule from context. This makes these patterns a valuable training signal for in-context learning.
+* **This is the same core mechanism used in language modeling.** Prior work suggests that language models implicitly infer latent concepts or rules within a sequence. Predicting text requires conditioning on those inferred structures. Similar mechanisms appear in math, code, and formal algorithmic tasks. The hypothesis is that pre-pretraining strengthens this general-purpose inference ability (see https://arxiv.org/abs/2406.04216).
+* **Transfer occurs through attention-based in-context learning circuits.** Transferable knowledge is primarily stored in attention layers, not MLPs. They connect this to “induction heads,” attention circuits known to support in-context learning by copying and extending patterns from earlier tokens. These learned attention mechanisms can then transfer to downstream domains (see https://arxiv.org/abs/2209.11895).
+* **Deterministic systems can still produce learnable structure (epiplexity).** Even though these patterns are deterministic, they can generate complex signals that finite-capacity models cannot simply brute-force simulate. According to the concept of “epiplexity,” models must learn higher-level abstractions and representations to predict these systems efficiently. Training on diverse and complex patterns may therefore help models learn abstract representations that are also useful for natural language (see https://arxiv.org/html/2601.03220).
