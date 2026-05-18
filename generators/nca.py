@@ -46,6 +46,31 @@ To turn each snapshot into a sequence of token IDs we:
 So every NCA sample ends up using only IDs `{0, 1}` (delimiters) and
 `{2..9}` (cell states), which trivially fits inside the project's
 `[0, 256)` vocabulary budget.
+
+Things To Ablate:
+
+    _GRID_SIZE — Directly scales sequence length per frame (grid_size² + 2 tokens). Larger
+    grids slow convergence to attractors and produce richer spatial patterns, but blow up
+    target_len requirements.
+    Worth probing: 4, 8, 16.
+
+    _D_STATE — Controls the "colour palette" of the automaton. At 2 it collapses to a binary
+    CA (very repetitive), at 16+ it starts resembling a continuous system.
+    Worth probing: 2, 4, 8, 16.
+
+    Vocab size — Currently only affects d_state indirectly (clamped to len(vocab) - 2), so
+    it's not an independent axis unless we decouple the clamping. Probably least interesting
+    unless we change the mapping.
+
+    _TEMPERATURE — This is the primary dial between ordered (low -> near-deterministic, sharp
+    fixed-point attractors) and chaotic (high -> random noise) regimes. The "edge of chaos"
+    is around 1.0.
+    Worth probing: 0.1, 0.5, 1.0, 2.0, 5.0.
+
+    _IDENTITY_BIAS — Acts as a persistence prior: positive values make cells "sticky" (slow
+    oscillators, stable blobs), negative values drive constant churn. Combined with temperature
+    it covers most of the dynamical phase diagram. 
+    Worth probing: -2, 0, 2, 5.
 """
 
 import random
