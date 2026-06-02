@@ -136,7 +136,7 @@ Naming convention: lowercase, snake_case, descriptive of the structural property
 
 ```bash
 python generator.py \
-  --tokenizer gpt2 \
+  --vocab-size 32 \
   --max-context-length 32 \
   --length-min 4 --length-max 4 \
   --samples-per-pattern 1 \
@@ -148,7 +148,7 @@ To verify only specific patterns, pass their names to `--patterns`:
 
 ```bash
 python generator.py \
-  --tokenizer gpt2 \
+  --vocab-size 32 \
   --max-context-length 32 \
   --length-min 4 --length-max 4 \
   --samples-per-pattern 1 \
@@ -163,9 +163,7 @@ python generator.py \
 - The `pattern` row shows the structural property you intended.
 - Total signal (`n_insertions * pattern_length`) covers at least `--signal-floor` of the context (default 50%; except for `dyck` / `shuffle_dyck`, which fill the entire sample as a single expression).
 
-A copy of the printed output is also written to `debug.logs` in the current working directory.
-
-For human-readable inspection, add `--mode tokens` to see the decoded strings instead of integer IDs.
+A copy of the printed output is also written to `debug.log` in the current working directory.
 
 ## Selecting patterns
 

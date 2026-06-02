@@ -1,7 +1,7 @@
 """
-Generates synthetic structured token sequences using a HuggingFace
-`AutoTokenizer` vocabulary. The patterns are inspired by formal
-language theory for sequence models.
+Generates synthetic structured token sequences using a simple integer
+vocabulary. The patterns are inspired by formal language theory for
+sequence models.
 
 Available patterns:
     - periodic: Repeating block (e.g. ABCABCABC).
