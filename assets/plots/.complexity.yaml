@@ -87,6 +87,25 @@ datasets:
       n_evaluated: 1000
       mean_gzip_complexity: 0.220347
     elapsed_seconds: 7.50
+  fineweb_edu:
+    n_shards: 1
+    n_samples: 100000
+    n_tokens: 482395719
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    mode: text
+    text_column: text
+    global:
+      original_bytes: 482395719
+      compressed_bytes: 181658839
+      gzip_complexity: 0.376576
+      compression_ratio: 2.655504
+      space_saving: 0.623424
+    per_sample:
+      n_evaluated: 5000
+      mean_gzip_complexity: 0.491617
+    elapsed_seconds: 39.25
   hierarchical:
     n_shards: 1
     n_samples: 1000
