@@ -10,50 +10,38 @@ Computes, for each dataset directory:
       average of (compressed / uncompressed) computed independently per
       sample over up to --per-sample-limit records.
 
-  pattern_richness_score  [auxiliary metric]
-      Composite interestingness score in [0, 1] computed per sample and
-      averaged across up to --per-sample-limit records.  It combines four
-      sub-metrics with fixed weights:
+We have two operating modes:
+*Token mode* (default):
+  Requires an `input_ids` column.  Token arrays are cast to uint8/16/32
+  depending on vocab size and compressed as raw integer byte streams.
 
-        normalized_ngram_entropy  (weight 0.35)
-            Shannon entropy of bigrams, normalised by log2(unique bigrams).
-            Range [0, 1].  Low -> repetitive; high -> diverse.
-            Unlike gzip, this is sensitive to statistical motif reuse and
-            is stable on shorter sequences.
-
-        motif_richness  (weight 0.30)
-            Fraction of distinct n-grams (n = 2..8) that appear more than
-            once.  Range [0, 1].  High -> reusable repeated substructures;
-            low -> random noise or fully unique subsequences.
-
-        long_range_repetition  (weight 0.25)
-            Fraction of length-16 windows whose exact content reappears at
-            least 32 positions later in the sequence.  Range [0, 1].
-            Captures callbacks, recurring motifs, and distant structural
-            reuse.
-
-        sequence_novelty  (weight 0.10, inverted)
-            Fraction of 4-grams that are unique (unique / total).  Near 1
-            means mostly-unique content; low means repetitive.  The score
-            uses (1 - novelty) so repetition is rewarded, penalising pure
-            random noise that scores high on entropy alone.
-
-      The combined score rewards structure and reuse while penalising both
-      trivial repetition and pure randomness. I think this is helpful to help
-      differentiate between datasets that have high gzip complexity due to 
-      rich patterns vs. those that have a lot of noise injected.
+*Text mode* (--text-column NAME):
+  Operates directly on raw text.  The specified column is UTF-8 encoded
+  into a byte stream (symbol alphabet fixed at 256).  Compression is
+  measured on this byte stream with dtype=uint8 and vocab_size=256.
+  Text mode is selected automatically when `input_ids` is absent and
+  --text-column is provided; it can also be forced when `input_ids`
+  is present by passing an explicit --text-column.
 
 Results are written as a .complexity.yaml file inside each analyzed
 directory, or in their common parent when multiple directories are
 processed at once.
 
 Usage:
+  # Token mode (input_ids required)
   python tools/complexity.py \\
     --paths ./data \\
     --output-dir ./data/results/ \\
     --vocab-size 256 \\
     --per-sample-limit 1000 \\
     --compresslevel 9 \\
+    --plot
+
+  # Text mode (operates on raw text column)
+  python tools/complexity.py \\
+    --paths ./data \\
+    --text-column text \\
+    --per-sample-limit 1000 \\
     --plot
 """
 
@@ -64,10 +52,8 @@ import os
 import sys
 import tempfile
 import time
-from collections import Counter
-from math import log2
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 
@@ -110,13 +96,32 @@ def _iter_records(paths: List[Path]):
                     yield json.loads(line)
 
 
-def _sniff_vocab_size(paths: List[Path]) -> Optional[int]:
-    """Return vocab_size from the first record that carries metadata."""
+def _sniff_vocab_size(paths: List[Path], text_column: Optional[str] = None) -> Optional[int]:
+    """Return vocab_size from the first record that carries metadata.
+
+    In text mode returns 256 (the UTF-8 byte alphabet).
+    """
+    if text_column is not None:
+        return 256
     for record in _iter_records(paths):
         meta = record.get("metadata")
         if meta and "vocab_size" in meta:
             return int(meta["vocab_size"])
     return None
+
+
+def _get_bytes(record: dict, dtype, text_column: Optional[str]) -> bytes:
+    """Extract the raw byte representation for a single record.
+
+    In token mode (*text_column* is None) reads `input_ids`, casts to
+    *dtype*, and returns `.tobytes()`.  In text mode UTF-8 encodes the
+    value of *text_column*.
+    """
+    if text_column is not None:
+        return record[text_column].encode("utf-8")
+    tokens = np.asarray(record["input_ids"], dtype=dtype)
+    return tokens.tobytes()
+
 
 # Metric computation
 def global_gzip_complexity(
@@ -124,8 +129,9 @@ def global_gzip_complexity(
     dtype,
     batch_size: int = 10_000,
     compresslevel: int = 9,
+    text_column: Optional[str] = None,
 ) -> Tuple[int, int, int]:
-    """Stream all token arrays into a temporary gzip file.
+    """Stream all token/text byte arrays into a temporary gzip file.
 
     Returns (n_samples, total_uncompressed_bytes, total_compressed_bytes).
     """
@@ -142,8 +148,7 @@ def global_gzip_complexity(
                 fileobj=raw_out, mode="wb", compresslevel=compresslevel
             ) as gz:
                 for i, record in enumerate(_iter_records(paths), 1):
-                    tokens = np.asarray(record["input_ids"], dtype=dtype)
-                    b = tokens.tobytes()
+                    b = _get_bytes(record, dtype, text_column)
                     total_uncompressed += len(b)
                     n_samples += 1
                     chunk.extend(b)
@@ -166,6 +171,7 @@ def per_sample_complexity(
     dtype,
     max_samples: Optional[int],
     compresslevel: int = 9,
+    text_column: Optional[str] = None,
 ) -> Tuple[List[float], int]:
     """Compute per-sample gzip complexity for up to max_samples records.
 
@@ -174,8 +180,7 @@ def per_sample_complexity(
     """
     complexities: List[float] = []
     for record in _iter_records(paths):
-        tokens = np.asarray(record["input_ids"], dtype=dtype)
-        raw = tokens.tobytes()
+        raw = _get_bytes(record, dtype, text_column)
         compressed = gzip_mod.compress(raw, compresslevel=compresslevel)
         complexities.append(len(compressed) / len(raw))
         if max_samples is not None and len(complexities) >= max_samples:
@@ -184,99 +189,32 @@ def per_sample_complexity(
     return complexities, len(complexities)
 
 
-# Pattern richness metrics
-def _ngrams(seq: List[int], n: int) -> List[tuple]:
-    return [tuple(seq[i:i + n]) for i in range(len(seq) - n + 1)]
+def _detect_mode(
+    files: List[Path], text_column: Optional[str]
+) -> Tuple[Optional[str], bool]:
+    """Determine operating mode and effective text column.
 
+    Returns (effective_text_column, is_text_mode).
 
-def _normalized_ngram_entropy(seq: List[int], n: int = 2) -> float:
-    grams = _ngrams(seq, n)
-    if not grams:
-        return 0.0
-    counts = Counter(grams)
-    total = len(grams)
-    entropy = 0.0
-    for c in counts.values():
-        p = c / total
-        entropy -= p * log2(p)
-    max_entropy = log2(len(counts))
-    if max_entropy == 0:
-        return 0.0
-    return entropy / max_entropy
-
-
-def _motif_richness(seq: List[int], min_len: int = 2, max_len: int = 8) -> float:
-    repeated = 0
-    total = 0
-    for n in range(min_len, max_len + 1):
-        grams = [tuple(seq[i:i + n]) for i in range(len(seq) - n + 1)]
-        counts = Counter(grams)
-        total += len(counts)
-        repeated += sum(1 for c in counts.values() if c > 1)
-    if total == 0:
-        return 0.0
-    return repeated / total
-
-
-def _long_range_repetition(
-    seq: List[int], window: int = 16, min_distance: int = 32
-) -> float:
-    seen: dict = {}
-    matches = 0
-    total = 0
-    for i in range(len(seq) - window + 1):
-        chunk = tuple(seq[i:i + window])
-        if chunk in seen and i - seen[chunk] >= min_distance:
-            matches += 1
-        seen[chunk] = i
-        total += 1
-    if total == 0:
-        return 0.0
-    return matches / total
-
-
-def _sequence_novelty(seq: List[int], n: int = 4) -> float:
-    grams = _ngrams(seq, n)
-    if not grams:
-        return 0.0
-    return len(set(grams)) / len(grams)
-
-
-def pattern_richness_score(seq: List[int]) -> float:
-    """Composite interestingness score in [0, 1].
-
-    Rewards local diversity (normalised bigram entropy), motif reuse,
-    and long-range organisation while penalising trivial repetition and
-    pure randomness.
+    Logic:
+    - If *text_column* is explicitly provided, use text mode with that column.
+    - If the dataset has an `input_ids` column, use token mode.
+    - If the dataset has neither `input_ids` nor *text_column*, raise an error.
     """
-    entropy = _normalized_ngram_entropy(seq, n=2)
-    motifs = _motif_richness(seq)
-    long_range = _long_range_repetition(seq)
-    novelty = _sequence_novelty(seq, n=4)
-    return (
-        0.35 * entropy
-        + 0.30 * motifs
-        + 0.25 * long_range
-        + 0.10 * (1.0 - novelty)
+    if text_column is not None:
+        return text_column, True
+
+    # Peek at the first record to see what columns are available.
+    for record in _iter_records(files):
+        if "input_ids" in record:
+            return None, False  # token mode
+        break  # only need first record
+
+    # No input_ids and no --text-column → error.
+    raise SystemExit(
+        "Dataset has no 'input_ids' column.  "
+        "Pass --text-column COLUMN to operate on raw text instead."
     )
-
-
-def per_sample_richness(
-    paths: List[Path],
-    dtype,
-    max_samples: Optional[int],
-) -> Tuple[List[float], int]:
-    """Compute pattern_richness_score for up to *max_samples* records.
-
-    Returns (scores, n_evaluated).
-    """
-    scores: List[float] = []
-    for record in _iter_records(paths):
-        tokens = list(np.asarray(record["input_ids"], dtype=dtype))
-        scores.append(pattern_richness_score(tokens))
-        if max_samples is not None and len(scores) >= max_samples:
-            break
-    return scores, len(scores)
 
 
 # Per-directory analysis
@@ -287,6 +225,7 @@ def analyze_directory(
     compresslevel: int,
     verbose: bool,
     store_sample_complexities: bool = False,
+    text_column: Optional[str] = None,
 ) -> Optional[dict]:
     files = _collect_jsonl(directory)
     if not files:
@@ -297,33 +236,46 @@ def analyze_directory(
     if verbose:
         print(f"  {directory.name}: {len(files)} shard(s)")
 
-    effective_vocab = vocab_size or _sniff_vocab_size(files)
-    if effective_vocab is None:
-        print(
-            f"  WARNING: could not determine vocab_size for {directory}; "
-            "defaulting to uint32.",
-            file=sys.stderr,
-        )
-        effective_vocab = 2 ** 32
+    # Resolve operating mode: text vs. token.
+    effective_text_column, is_text_mode = _detect_mode(files, text_column)
 
-    dtype = _dtype_for_vocab(effective_vocab)
-    dtype_name = np.dtype(dtype).name
+    if is_text_mode:
+        effective_vocab = 256
+        dtype = np.uint8
+        dtype_name = "uint8"
+        if verbose:
+            print(
+                f"    mode                : text "
+                f"(column={effective_text_column}, "
+                f"vocab_size=256, utf-8 bytes)"
+            )
+    else:
+        effective_vocab = vocab_size or _sniff_vocab_size(files)
+        if effective_vocab is None:
+            print(
+                f"  WARNING: could not determine vocab_size for {directory}; "
+                "defaulting to uint32.",
+                file=sys.stderr,
+            )
+            effective_vocab = 2 ** 32
+        dtype = _dtype_for_vocab(effective_vocab)
+        dtype_name = np.dtype(dtype).name
+        if verbose:
+            print(
+                f"    mode                : token "
+                f"(vocab_size={effective_vocab}, dtype={dtype_name})"
+            )
 
     t0 = time.time()
 
     n_samples, n_uncompressed, n_compressed = global_gzip_complexity(
-        files, dtype, compresslevel=compresslevel
+        files, dtype, compresslevel=compresslevel, text_column=effective_text_column,
     )
     sample_complexities, n_evaluated = per_sample_complexity(
-        files, dtype, max_samples=per_sample_limit, compresslevel=compresslevel
+        files, dtype, max_samples=per_sample_limit, compresslevel=compresslevel,
+        text_column=effective_text_column,
     )
     mean_per_sample = float(np.mean(sample_complexities)) if sample_complexities else float("nan")
-
-    richness_scores, n_richness = per_sample_richness(
-        files, dtype, max_samples=per_sample_limit
-    )
-    mean_richness = float(np.mean(richness_scores)) if richness_scores else float("nan")
-    std_richness = float(np.std(richness_scores)) if richness_scores else float("nan")
 
     elapsed = time.time() - t0
     n_tokens = n_uncompressed // np.dtype(dtype).itemsize
@@ -336,6 +288,8 @@ def analyze_directory(
         "vocab_size": effective_vocab,
         "dtype": dtype_name,
         "compresslevel": compresslevel,
+        "mode": "text" if is_text_mode else "token",
+        "text_column": effective_text_column,
         "global": {
             "original_bytes": n_uncompressed,
             "compressed_bytes": n_compressed,
@@ -347,20 +301,13 @@ def analyze_directory(
             "n_evaluated": n_evaluated,
             "mean_gzip_complexity": mean_per_sample,
         },
-        "pattern_richness": {
-            "n_evaluated": n_richness,
-            "mean": mean_richness,
-            "std": std_richness,
-        },
         "sample_complexities": sample_complexities if store_sample_complexities else None,
-        "richness_scores": richness_scores if store_sample_complexities else None,
         "elapsed_seconds": elapsed,
     }
 
     if verbose:
         g = result["global"]
         ps = result["per_sample"]
-        pr = result["pattern_richness"]
         print(f"    tokens              : {n_tokens:,}")
         print(
             f"    global complexity   : {g['gzip_complexity']:.4f}  "
@@ -370,10 +317,6 @@ def analyze_directory(
         print(
             f"    per-sample (n={n_evaluated:,}): "
             f"{ps['mean_gzip_complexity']:.4f}"
-        )
-        print(
-            f"    pattern richness (n={pr['n_evaluated']:,}): "
-            f"mean={pr['mean']:.4f}  std={pr['std']:.4f}"
         )
         print(f"    elapsed             : {elapsed:.1f}s")
 
@@ -394,8 +337,10 @@ def write_metadata(
             name = Path(r["directory"]).name
             f.write(f"  {name}:\n")
             for k in ("n_shards", "n_samples", "n_tokens", "vocab_size",
-                      "dtype", "compresslevel"):
+                      "dtype", "compresslevel", "mode"):
                 f.write(f"    {k}: {r[k]}\n")
+            if r.get("text_column") is not None:
+                f.write(f"    text_column: {r['text_column']}\n")
             f.write("    global:\n")
             for k, v in r["global"].items():
                 if isinstance(v, float):
@@ -406,11 +351,6 @@ def write_metadata(
             f.write(f"      n_evaluated: {r['per_sample']['n_evaluated']}\n")
             mps = r["per_sample"]["mean_gzip_complexity"]
             f.write(f"      mean_gzip_complexity: {mps:.6f}\n")
-            pr = r["pattern_richness"]
-            f.write("    pattern_richness:\n")
-            f.write(f"      n_evaluated: {pr['n_evaluated']}\n")
-            f.write(f"      mean: {pr['mean']:.6f}\n")
-            f.write(f"      std: {pr['std']:.6f}\n")
             f.write(f"    elapsed_seconds: {r['elapsed_seconds']:.2f}\n")
     return out_path
 
@@ -505,6 +445,7 @@ def main(args):
             compresslevel=args.compresslevel,
             verbose=verbose,
             store_sample_complexities=args.plot,
+            text_column=args.text_column,
         )
         if result is not None:
             all_results.append(result)
@@ -588,6 +529,17 @@ if __name__ == "__main__":
         action="store_true",
         help="Save a per-sample complexity histogram (PNG) next to the "
              "metadata file. Requires matplotlib.",
+    )
+    ap.add_argument(
+        "--text-column",
+        default=None,
+        metavar="COLUMN",
+        help="Operate on raw text from this JSONL column instead of "
+             "token IDs.  Text is UTF-8 encoded to a byte stream with "
+             "a fixed 256-symbol alphabet.  Required when the dataset "
+             "has no 'input_ids' column.  When provided alongside a "
+             "dataset that also has 'input_ids', the text column takes "
+             "precedence.",
     )
     ap.add_argument(
         "--quiet",

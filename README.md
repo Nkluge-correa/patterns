@@ -201,13 +201,37 @@ The argument accepts one or more pattern names. An unknown name causes an immedi
 | Pattern registration (imports all modules)     | [`generators/__init__.py`](generators/__init__.py)     |
 | CLI + `main()`                                 | [`generator.py`](generator.py)                         |
 | Complexity measurement tools                   | [`tools/`](tools)                                      |
+| Parquet → JSONL converter                      | [`tools/parquet_to_jsonl.py`](tools/parquet_to_jsonl.py) |
 | Background, motivation, and theory             | [`logs/`](logs)                                        |
 
 ### `/tools`
 
 Contains utilities for analyzing generated datasets:
 
-- **`complexity.py`** — Measures gzip-based complexity metrics for pattern dataset JSONL files. Computes both global gzip complexity (compressed / uncompressed bytes over the full token stream) and mean per-sample complexity (average compression ratio per individual sample). Results are written as `.complexity.yaml` files for each analyzed directory. Useful for characterizing the information density and learnability of pattern distributions.
+- **`complexity.py`** — Measures gzip-based complexity metrics for pattern dataset JSONL files. Computes both global gzip complexity (compressed / uncompressed bytes over the full token stream) and mean per-sample complexity (average compression ratio per individual sample). Operates in two modes:
+  - **Token mode** (default) — reads `input_ids` and casts to the appropriate unsigned integer dtype (uint8/16/32) based on vocabulary size.
+  - **Text mode** (`--text-column`) — operates directly on raw text from a named JSONL column, UTF-8 encoding it to a byte stream with a fixed 256-symbol alphabet. Automatically selected when `input_ids` is absent.
+  
+  Results are written as `.complexity.yaml` files for each analyzed directory. Useful for characterizing the information density and learnability of pattern distributions.
+
+- **`parquet_to_jsonl.py`** — Converts Parquet dataset files to JSONL format for use with `complexity.py` and other tools.
+
+### Output metadata
+
+`generator.py` writes two kinds of metadata alongside the shards:
+
+- **Per-record metadata** — each JSONL record carries a `metadata` key (unless `--no-metadata` is set) with `pattern_type`, `vocab_size`, `max_context_length`, insertion positions, and other generation parameters.
+
+- **Per-pattern `.metadata`** — after finishing a pattern, a YAML file named `.metadata` is written to the pattern's output directory (e.g. `out/periodic/.metadata`) summarizing:
+  ```yaml
+  samples: 1000
+  tokens: 1024000
+  tokens_per_chunk: 100000000
+  chunks: 1
+  block_size: 1024
+  columns: [input_ids, metadata]
+  ```
+  This file is a quick-reference manifest for downstream tooling and dataset catalogues.
 
 ### `/logs`
 

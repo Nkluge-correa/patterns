@@ -59,7 +59,6 @@ Usage:
         --max-context-length 1024 \\
         --length-min 2 --length-max 32 \\
         --samples-per-pattern 1000 \\
-        --patterns all \\
         --output patterns.jsonl \\
         --output-dir ./data \\
         --max-tokens-per-shard 100000000 \\
@@ -234,6 +233,8 @@ def main(args):
     t0 = time.time()
 
     for name, (_desc, fn) in active_patterns.items():
+        pattern_samples = 0
+        pattern_tokens = 0
         shard_idx = 0
         shard_tokens = 0
         shard_records = 0
@@ -280,6 +281,8 @@ def main(args):
                 shard_tokens += len(sample)
                 shard_records += 1
                 n_written += 1
+                pattern_samples += 1
+                pattern_tokens += len(sample)
 
                 if (args.progress_every and
                         n_written % args.progress_every == 0):
@@ -294,6 +297,24 @@ def main(args):
             f.close()
             print(f"  shard {current_path}: "
                   f"{shard_records} records, {shard_tokens} tokens")
+
+        # Write per-pattern .metadata YAML file.
+        n_shards = shard_idx + 1
+        columns = ["input_ids"]
+        if not args.no_metadata:
+            columns.append("metadata")
+        metadata_yaml = (
+            f"samples: {pattern_samples}\n"
+            f"tokens: {pattern_tokens}\n"
+            f"tokens_per_chunk: {args.max_tokens_per_shard}\n"
+            f"chunks: {n_shards}\n"
+            f"block_size: {args.max_context_length}\n"
+            f"columns: {columns}\n"
+        )
+        meta_path = os.path.join(args.output_dir, name, ".metadata")
+        with open(meta_path, "w", encoding="utf-8") as meta_f:
+            meta_f.write(metadata_yaml)
+        print(f"  metadata: {meta_path}")
 
     print(f"Wrote {n_written} samples across {len(active_patterns)} patterns "
           f"to {len(all_shard_paths)} shard(s).")

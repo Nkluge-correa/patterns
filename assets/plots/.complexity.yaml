@@ -18,10 +18,6 @@ datasets:
     per_sample:
       n_evaluated: 1000
       mean_gzip_complexity: 0.336432
-    pattern_richness:
-      n_evaluated: 1000
-      mean: 0.317057
-      std: 0.056410
     elapsed_seconds: 7.08
   copy:
     n_shards: 1
@@ -39,10 +35,6 @@ datasets:
     per_sample:
       n_evaluated: 1000
       mean_gzip_complexity: 0.339535
-    pattern_richness:
-      n_evaluated: 1000
-      mean: 0.315602
-      std: 0.042788
     elapsed_seconds: 6.92
   counting_anbn:
     n_shards: 1
@@ -60,10 +52,6 @@ datasets:
     per_sample:
       n_evaluated: 1000
       mean_gzip_complexity: 0.335703
-    pattern_richness:
-      n_evaluated: 1000
-      mean: 0.281203
-      std: 0.022207
     elapsed_seconds: 7.02
   counting_anbncn:
     n_shards: 1
@@ -81,10 +69,6 @@ datasets:
     per_sample:
       n_evaluated: 1000
       mean_gzip_complexity: 0.337491
-    pattern_richness:
-      n_evaluated: 1000
-      mean: 0.308242
-      std: 0.024191
     elapsed_seconds: 6.98
   dyck:
     n_shards: 1
@@ -102,10 +86,6 @@ datasets:
     per_sample:
       n_evaluated: 1000
       mean_gzip_complexity: 0.220347
-    pattern_richness:
-      n_evaluated: 1000
-      mean: 0.737863
-      std: 0.003172
     elapsed_seconds: 7.50
   hierarchical:
     n_shards: 1
@@ -123,10 +103,6 @@ datasets:
     per_sample:
       n_evaluated: 1000
       mean_gzip_complexity: 0.337782
-    pattern_richness:
-      n_evaluated: 1000
-      mean: 0.307153
-      std: 0.026016
     elapsed_seconds: 7.08
   identity:
     n_shards: 1
@@ -144,10 +120,6 @@ datasets:
     per_sample:
       n_evaluated: 1000
       mean_gzip_complexity: 0.334739
-    pattern_richness:
-      n_evaluated: 1000
-      mean: 0.202150
-      std: 0.021864
     elapsed_seconds: 7.30
   interleaving:
     n_shards: 1
@@ -165,10 +137,6 @@ datasets:
     per_sample:
       n_evaluated: 1000
       mean_gzip_complexity: 0.335310
-    pattern_richness:
-      n_evaluated: 1000
-      mean: 0.259060
-      std: 0.022254
     elapsed_seconds: 7.04
   mixer:
     n_shards: 1
@@ -186,10 +154,6 @@ datasets:
     per_sample:
       n_evaluated: 1000
       mean_gzip_complexity: 0.481101
-    pattern_richness:
-      n_evaluated: 1000
-      mean: 0.415952
-      std: 0.008695
     elapsed_seconds: 7.14
   nca:
     n_shards: 1
@@ -207,10 +171,6 @@ datasets:
     per_sample:
       n_evaluated: 1000
       mean_gzip_complexity: 0.554388
-    pattern_richness:
-      n_evaluated: 1000
-      mean: 0.356437
-      std: 0.001713
     elapsed_seconds: 6.01
   nested:
     n_shards: 1
@@ -228,10 +188,6 @@ datasets:
     per_sample:
       n_evaluated: 1000
       mean_gzip_complexity: 0.345179
-    pattern_richness:
-      n_evaluated: 1000
-      mean: 0.362941
-      std: 0.056786
     elapsed_seconds: 6.91
   noisy_palindrome:
     n_shards: 1
@@ -249,10 +205,6 @@ datasets:
     per_sample:
       n_evaluated: 1000
       mean_gzip_complexity: 0.349289
-    pattern_richness:
-      n_evaluated: 1000
-      mean: 0.361365
-      std: 0.056226
     elapsed_seconds: 6.90
   palindrome:
     n_shards: 1
@@ -270,10 +222,6 @@ datasets:
     per_sample:
       n_evaluated: 1000
       mean_gzip_complexity: 0.352443
-    pattern_richness:
-      n_evaluated: 1000
-      mean: 0.358019
-      std: 0.055304
     elapsed_seconds: 6.92
   periodic:
     n_shards: 1
@@ -291,10 +239,6 @@ datasets:
     per_sample:
       n_evaluated: 1000
       mean_gzip_complexity: 0.335038
-    pattern_richness:
-      n_evaluated: 1000
-      mean: 0.270846
-      std: 0.023371
     elapsed_seconds: 6.99
   permutation_cycle:
     n_shards: 1
@@ -312,10 +256,6 @@ datasets:
     per_sample:
       n_evaluated: 1000
       mean_gzip_complexity: 0.346400
-    pattern_richness:
-      n_evaluated: 1000
-      mean: 0.301618
-      std: 0.028781
     elapsed_seconds: 7.17
   random:
     n_shards: 1
@@ -333,10 +273,6 @@ datasets:
     per_sample:
       n_evaluated: 1000
       mean_gzip_complexity: 1.022461
-    pattern_richness:
-      n_evaluated: 1000
-      mean: 0.350181
-      std: 0.000068
     elapsed_seconds: 5.86
   reverse:
     n_shards: 1
@@ -354,10 +290,6 @@ datasets:
     per_sample:
       n_evaluated: 1000
       mean_gzip_complexity: 0.350943
-    pattern_richness:
-      n_evaluated: 1000
-      mean: 0.359325
-      std: 0.055358
     elapsed_seconds: 7.32
   shuffle_dyck:
     n_shards: 1
@@ -375,8 +307,4 @@ datasets:
     per_sample:
       n_evaluated: 1000
       mean_gzip_complexity: 0.431438
-    pattern_richness:
-      n_evaluated: 1000
-      mean: 0.424304
-      std: 0.002598
     elapsed_seconds: 6.15
