@@ -41,7 +41,13 @@ source $workdir/.modules.sh > "$out" 2>&1
 source $workdir/.venv_intel/bin/activate
 
 # ===== Dependencies =====
-# pip3 install torch datasets --no-cache-dir
+# Clone the repository and install in editable mode:
+#   git clone https://github.com/Polygl0t/patterns.git "$workdir/patterns"
+#   cd "$workdir/patterns"
+#   pip3 install -e . --no-cache-dir
+#
+# Or install dependencies directly:
+#   pip3 install torch numpy datasets --no-cache-dir
 
 #############################################
 # Environment Setup
