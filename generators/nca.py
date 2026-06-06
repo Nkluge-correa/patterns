@@ -251,10 +251,10 @@ def gen_nca(vocab: List[int], target_len: int, rng: random.Random) -> List[int]:
         out.extend(state_vocab[s] for s in frame_cells)
         out.append(close_tok)
 
-    # Pad any residual tokens with random cell-state IDs so structure stays
+    # Pad any residual tokens with the first vocab ID (0) so structure stays
     # clean (no orphan delimiters). With frame_size = grid_size**2 + 2 = 66,
     # all powers of 2 >= 256 leave only a small tail.
     if leftover:
-        out.extend(rng.choice(state_vocab) for _ in range(leftover))
+        out.extend([vocab[0]] * leftover)
 
     return out
