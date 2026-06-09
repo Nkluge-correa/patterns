@@ -1,0 +1,58 @@
+# gzip complexity metadata
+# generated: 2026-06-09T10:47:19
+n_datasets: 1
+datasets:
+  nca:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 4096000
+    vocab_size: 10
+    dtype: uint8
+    compresslevel: 9
+    mode: token
+    global:
+      original_bytes: 4096000
+      compressed_bytes: 1754980
+      gzip_complexity: 0.428462
+      compression_ratio: 2.333930
+      space_saving: 0.571538
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.476247
+    elapsed_seconds: 1.04
+  dyck:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 4096000
+    vocab_size: 2
+    dtype: uint8
+    compresslevel: 9
+    mode: token
+    global:
+      original_bytes: 4096000
+      compressed_bytes: 611749
+      gzip_complexity: 0.149353
+      compression_ratio: 6.695557
+      space_saving: 0.850647
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.181501
+    elapsed_seconds: 11.01
+  shuffle_dyck:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 4096000
+    vocab_size: 6
+    dtype: uint8
+    compresslevel: 9
+    mode: token
+    global:
+      original_bytes: 4096000
+      compressed_bytes: 1386376
+      gzip_complexity: 0.338471
+      compression_ratio: 2.954465
+      space_saving: 0.661529
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.390485
+    elapsed_seconds: 1.55

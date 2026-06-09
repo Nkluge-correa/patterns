@@ -102,6 +102,11 @@ from compose import compose_sample
 from registry import PATTERNS
 from utils import get_vocab
 
+# Control flags for shared dynamics or token IDs in certain patterns. 
+# See README.md for motivation and details.
+generators.nca._SHARED_RULE = True       # one NCA network for all samples
+generators.dyck._SHARED_IDS = True       # brackets always use IDs 0 and 1
+
 
 def main(args):
 

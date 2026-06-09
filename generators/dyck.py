@@ -10,6 +10,11 @@ from typing import List
 from registry import register
 from utils import sample_distinct
 
+# When True, dyck uses fixed IDs [0, 1] and shuffle_dyck uses [0..2k-1]
+# (the lowest IDs in the vocab) for every sample.  When False (original
+# behaviour), fresh random distinct IDs are drawn per sample.
+_SHARED_IDS = False
+
 
 @register(
     "dyck",
@@ -17,7 +22,10 @@ from utils import sample_distinct
 )
 def gen_dyck(vocab: List[int], target_len: int, rng: random.Random) -> List[int]:
     # Need just 2 distinct vocab IDs: one for open, one for close
-    open_id, close_id = sample_distinct(vocab, 2, rng)
+    if _SHARED_IDS:
+        open_id, close_id = vocab[0], vocab[1]
+    else:
+        open_id, close_id = sample_distinct(vocab, 2, rng)
 
     sequence: List[int] = []
     depth = 0
@@ -54,8 +62,12 @@ def gen_shuffle_dyck(vocab: List[int], target_len: int, rng: random.Random,
         # Degrade gracefully: shrink k to what the vocab supports.
         k = max(1, len(vocab) // 2)
         n_needed = 2 * k
-    bracket_ids = sample_distinct(vocab, n_needed, rng)
-    openers, closers = bracket_ids[:k], bracket_ids[k:]
+    if _SHARED_IDS:
+        openers = vocab[:k]
+        closers = vocab[k:2 * k]
+    else:
+        bracket_ids = sample_distinct(vocab, n_needed, rng)
+        openers, closers = bracket_ids[:k], bracket_ids[k:]
 
     sequence: List[int] = []
     counts = [0] * k  # open-bracket counts per type

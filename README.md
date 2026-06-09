@@ -75,6 +75,41 @@ With `--no-metadata`, only `input_ids` is written — useful when the files are 
 
 - **`nca`** — also a whole-context pattern. Each sample is a single rollout of a stochastic neural cellular automaton (a tiny CNN with toroidal padding and per-cell categorical sampling) whose weights are sampled fresh per sample, so every sequence reflects a different dynamical rule. The rollout is serialised as consecutive frames `[<grid>, row-major cells, </grid>]`; the first two vocab IDs (`0`, `1`) are reserved as the delimiters and cell states map to the remaining IDs. The 8×8 default grid yields a frame size of 66 tokens, so `--max-context-length` must be at least `132` (two full frames); all powers of 2 ≥ 256 fit comfortably. Any leftover slack after the last complete frame is padded with random cell-state IDs. `--signal-floor` does not apply.
 
+### Controlling pattern complexity
+
+Some generators have module-level flags that reduce the difficulty of the
+distribution by removing a source of per-sample randomness.  They are meant
+to be toggled *before* generation starts (e.g. in the caller script or
+config), not changed mid-run.
+
+| Pattern        | Flag           | Default | Effect when `True`                                                                      |
+|----------------|----------------|---------|-----------------------------------------------------------------------------------------|
+| `nca`          | `_SHARED_RULE` | `False` | All samples evolve under the **same** randomly-initialised NCA network (fixed seed 42). |
+| `dyck`         | `_SHARED_IDS`  | `False` | Open/close tokens are always `[0, 1]` instead of a fresh random pair per sample.        |
+| `shuffle_dyck` | `_SHARED_IDS`  | `False` | Bracket tokens are always `[0..k-1]` (openers) and `[k..2k-1]` (closers).               |
+
+- **Why this helps.**  With the default per-sample resampling, a model must simultaneously learn the structural rules *and* re-discover which tokens carry the structure on every sample (a meta-learning problem).  Fixing the dynamics (`_SHARED_RULE`) or the token alphabet (`_SHARED_IDS`) collapses this to learning a single, consistent system — much easier for small or early-stage models — while still producing diverse sequences through
+stochastic updates and varying initial conditions.
+
+When using the CLI, toggle the flags near the top of `generator.py`:
+
+```python
+# generator.py (near the imports)
+generators.nca._SHARED_RULE = True   # one NCA network for all samples
+generators.dyck._SHARED_IDS = True   # brackets always use IDs 0 and 1
+```
+
+When calling the generators from your own script, set them directly on the
+imported module:
+
+```python
+import generators.nca as nca
+import generators.dyck as dyck
+
+nca._SHARED_RULE = True
+dyck._SHARED_IDS = True
+```
+
 ## How do I add a new pattern?
 
 Adding a new pattern is a three-step process: write a generator function in the right module, decorate it with `@register`, and (optionally) verify with `--debug`.

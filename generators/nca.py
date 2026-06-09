@@ -74,7 +74,8 @@ Things To Ablate:
 """
 
 import random
-from typing import List
+import threading
+from typing import List, Optional
 
 import torch
 import torch.nn as nn
@@ -98,6 +99,16 @@ _GRID_SIZE = 8
 _D_STATE = 8
 _IDENTITY_BIAS = 0.0
 _TEMPERATURE = 1.0
+# When True, a single randomly-initialised NCA network is created on first
+# call and reused for every sample. This makes the pattern space much easier
+# for downstream models to learn (one dynamical system instead of a
+# meta-learning problem over all possible NCAs) while retaining diversity
+# through stochastic updates and varying initial states. When False (the
+# original behaviour), each sample draws a fresh random rule.
+_SHARED_RULE = False
+# Fixed seed for the shared network when _SHARED_RULE is True. Change this
+# to sample a different rule family from the NCA distribution.
+_SHARED_RULE_SEED = 42
 # Burn-in steps discarded before recording the trajectory, so the sample
 # captures the rule's attractor rather than the random initial condition.
 _BURN_IN_STEPS = 4
@@ -112,6 +123,12 @@ _MIN_FRAMES_PER_SAMPLE = 2
 _OPEN_IDX = 0
 _CLOSE_IDX = 1
 _N_RESERVED = 2
+
+# Module-level cache for the shared-rule network (populated lazily on first
+# call when _SHARED_RULE is True). The lock guards against races when
+# multiple dataloader workers trigger the first call concurrently.
+_shared_net: Optional["_NCANetwork"] = None
+_shared_net_lock: Optional[threading.Lock] = None
 
 
 class _NCANetwork(nn.Module):
@@ -164,9 +181,16 @@ def _rollout(
     temperature: float,
     gen: torch.Generator,
     device: torch.device,
+    net: Optional[_NCANetwork] = None,
 ) -> torch.Tensor:
-    """Run the NCA and return a (n_frames, grid_size, grid_size) int tensor (CPU)."""
-    net = _make_rule(d_state, gen, device)
+    """Run the NCA and return a (n_frames, grid_size, grid_size) int tensor (CPU).
+
+    When *net* is None a fresh rule is sampled (original per-sample
+    behaviour); otherwise the supplied network is reused across calls so
+    every sample evolves under the same dynamical system.
+    """
+    if net is None:
+        net = _make_rule(d_state, gen, device)
 
     # Initial state sampled on CPU (generator is CPU-bound), then moved.
     init_logits = torch.empty(d_state).normal_(generator=gen)
@@ -233,6 +257,20 @@ def gen_nca(vocab: List[int], target_len: int, rng: random.Random) -> List[int]:
     gen = torch.Generator(device="cpu")
     gen.manual_seed(seed)
 
+    # shared-rule path: lazily build one network and reuse it forever
+    if _SHARED_RULE:
+        global _shared_net, _shared_net_lock
+        if _shared_net_lock is None:
+            _shared_net_lock = threading.Lock()
+        with _shared_net_lock:
+            if _shared_net is None:
+                shared_gen = torch.Generator(device="cpu")
+                shared_gen.manual_seed(_SHARED_RULE_SEED)
+                _shared_net = _make_rule(d_state, shared_gen, _DEVICE)
+        net = _shared_net
+    else:
+        net = None
+
     frames = _rollout(
         n_frames=n_frames,
         grid_size=grid_size,
@@ -241,6 +279,7 @@ def gen_nca(vocab: List[int], target_len: int, rng: random.Random) -> List[int]:
         temperature=_TEMPERATURE,
         gen=gen,
         device=_DEVICE,
+        net=net,
     )  # (n_frames, H, W) on CPU
 
     # Serialize: per-frame [open_tok, row-major cells mapped to state_vocab, close_tok].
