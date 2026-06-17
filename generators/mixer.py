@@ -1,45 +1,37 @@
 """Mixer pattern generator.
 
 Fills the context with consecutive non-overlapping segments drawn from
-different pattern types, separated by a single separator token.
+different pattern types, separated by the reserved PAD_ID (0) token.
 """
 
 import random
-from typing import List
 
 from registry import register
-from utils import pad_to
+from utils import PAD_ID, pad_to
 
-_MIXER_EXCLUDE = frozenset({"dyck", "shuffle_dyck", "random", "mixer", "nca"})
-_MIXER_MIN_SEGMENT_LEN = 6
+_MIXER_EXCLUDE = frozenset({"dyck", "shuffle_dyck", "random", "mixer", "nca", "identity"})
+_MIXER_MIN_SEGMENT_LEN = 12
 
 
 @register(
     "mixer",
     "Fills the context with consecutive non-overlapping segments from different "
-    "pattern types, separated by a single separator token. Both the separator "
-    "token and the pattern types are chosen fresh each call, so every sample "
-    "has a unique structure. Segment lengths are randomised (each at least 6 "
-    "tokens when the target length permits it). dyck, shuffle_dyck, random, "
-    "and nca are excluded from the pool.",
+    "pattern types, separated by the reserved PAD_ID (0) token. Every sample "
+    "has a unique structure: pattern types and segment lengths are randomised "
+    "(each at least 12 tokens when the target length permits it). dyck, "
+    "shuffle_dyck, random, nca, and identity are excluded from the pool.",
 )
-def gen_mixer(vocab: List[int], target_len: int, rng: random.Random) -> List[int]:
+def gen_mixer(vocab: list[int], target_len: int, rng: random.Random) -> list[int]:
     # Import here to avoid a circular import at module load time; PATTERNS is
     # fully populated by the time any generator is actually called.
     from registry import PATTERNS
 
-    # One separator token for the whole sample, drawn fresh each call.
-    sep_token = rng.choice(vocab)
-    # Patterns must not emit the separator, so give them a reduced vocab.
-    pattern_vocab = [t for t in vocab if t != sep_token]
-    if not pattern_vocab:
-        # Degenerate: vocab has only one token, fall back to full vocab.
-        pattern_vocab = vocab
+    # Use PAD_ID (0) as the segment separator. Since no generator emits
+    # PAD_ID as content (only as trailing padding), it's a natural delimiter.
+    # Generators already skip ID 0, so we can pass vocab directly.
 
     candidates = [
-        (name, fn)
-        for name, (_desc, fn) in PATTERNS.items()
-        if name not in _MIXER_EXCLUDE
+        (name, fn) for name, (_desc, fn) in PATTERNS.items() if name not in _MIXER_EXCLUDE
     ]
     rng.shuffle(candidates)
 
@@ -66,11 +58,17 @@ def gen_mixer(vocab: List[int], target_len: int, rng: random.Random) -> List[int
     for _ in range(extra):
         lengths[rng.randrange(n)] += 1
 
-    result: List[int] = []
-    for i, ((_name, fn), seg_len) in enumerate(zip(candidates, lengths)):
+    result: list[int] = []
+    for i, ((_name, fn), seg_len) in enumerate(zip(candidates, lengths, strict=False)):
         if i > 0:
-            result.append(sep_token)
-        segment = fn(pattern_vocab, seg_len, rng)
+            result.append(PAD_ID)
+        segment = fn(vocab, seg_len, rng)
+        # Sub-generators pad their own slack with the reserved PAD_ID. Strip
+        # that trailing pad so the reserved token never lands inside the body
+        # of the mixer sample; the single final pad_to below keeps all padding
+        # in the tail where its loss is masked.
+        while segment and segment[-1] == PAD_ID:
+            segment.pop()
         result.extend(segment)
 
-    return pad_to(result, target_len, pattern_vocab, rng)
+    return pad_to(result, target_len, vocab, rng)

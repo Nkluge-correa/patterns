@@ -7,45 +7,16 @@ sequence corresponds to a different dynamical system.
 
 The generator flattens the rollout trajectory frame-by-frame in row-major
 order, wrapping each frame in reserved `<grid>` / `</grid>` delimiter
-tokens (the first two IDs of the vocabulary). Cell states map to the
-remaining vocab IDs so they never collide with the delimiters.
+tokens (IDs 1 and 2; ID 0 is a dedicated pad token). Cell states map to the
+remaining vocab IDs so they never collide with the delimiters or the pad.
 
 A sample's `target_len` must accommodate at least two full frames
 (`2 * (grid_size**2 + 2)` tokens); any leftover slack after packing as
-many full frames as possible is padded with random cell-state IDs.
+many full frames as possible is padded with the dedicated pad token (ID 0),
+whose loss should be masked during training.
 
 This has been adapted from the reference implementation:
 - See https://github.com/danihyunlee/nca-pre-pretraining/blob/main/utils/nca.py
-
-ELI5 version:
-
-Imagine a tiny 8x8 chessboard whose squares can take 8 different "colours"
-(states 0..7). A randomly-wired neural network looks at every square and
-its 8 neighbours, then rolls dice (biased by the network) to decide what
-colour each square turns into next tick. We let the board evolve for a
-short warm-up, then start recording snapshots ("frames").
-
-To turn each snapshot into a sequence of token IDs we:
-
-1. Pick the first two IDs from the vocabulary -- `vocab[0]` and `vocab[1]`
-   -- and reserve them as the "<grid>" and "</grid>" tags. They never
-   appear inside a frame, only at its boundaries.
-2. Map each cell state `s` (0..7) to `vocab[s + 2]`. With the default vocab
-   `[0, 1, 2, ..., 255]`, state 0 -> token 2, state 1 -> token 3, ...,
-   state 7 -> token 9. No patches, no lookup table -- just an offset by 2.
-3. Read the snapshot row by row (left-to-right, top-to-bottom) and emit:
-
-       <grid>  c00 c01 ... c07  c10 c11 ... c77  </grid>
-
-   That is 1 + 64 + 1 = 66 tokens per frame.
-4. Concatenate as many *complete* frames as fit in `target_len`. Any
-   leftover tail (fewer than 66 tokens) is filled with random cell-state
-   IDs purely so the sample lands at exactly `target_len`; we deliberately
-   never emit a half-frame, because that would leave an orphan delimiter.
-
-So every NCA sample ends up using only IDs `{0, 1}` (delimiters) and
-`{2..9}` (cell states), which trivially fits inside the project's
-`[0, 256)` vocabulary budget.
 
 Things To Ablate:
 
@@ -62,26 +33,33 @@ Things To Ablate:
     it's not an independent axis unless we decouple the clamping. Probably least interesting
     unless we change the mapping.
 
-    _TEMPERATURE — This is the primary dial between ordered (low -> near-deterministic, sharp
-    fixed-point attractors) and chaotic (high -> random noise) regimes. The "edge of chaos"
-    is around 1.0.
+    _TEMPERATURE — The softmax temperature applied to the rule's transition logits.
+    The raw CNN logits are tiny, so this is the primary dial between ordered (low ->
+    near-deterministic, sharp fixed-point attractors) and chaotic (high -> near-uniform
+    noise) regimes. NOTE: it is normally set indirectly via _REGIME (see below) rather
+    than edited here.
     Worth probing: 0.1, 0.5, 1.0, 2.0, 5.0.
 
     _IDENTITY_BIAS — Acts as a persistence prior: positive values make cells "sticky" (slow
     oscillators, stable blobs), negative values drive constant churn. Combined with temperature
-    it covers most of the dynamical phase diagram. 
+    it covers most of the dynamical phase diagram. Normally set via _REGIME.
     Worth probing: -2, 0, 2, 5.
+
+    _REGIME — The headline difficulty knob. Selects a (temperature, identity_bias) preset
+    placing the dynamics in a difficulty band labelled by the oracle next-cell loss as a
+    fraction of ln(d_state). See _REGIMES for the presets and tools/validate.py to measure.
 """
 
 import random
 import threading
-from typing import List, Optional
+from typing import Optional
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from registry import register
+from utils import PAD_ID
 
 # Use CUDA when available. For the tiny default grid (8×8) the GPU kernel-
 # launch overhead may partially offset the gain, but across many thousands of
@@ -97,14 +75,42 @@ _DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # context windows.
 _GRID_SIZE = 8
 _D_STATE = 8
-_IDENTITY_BIAS = 0.0
-_TEMPERATURE = 1.0
+
+# --- Dynamical regime -------------------------------------------------------
+# The raw CNN rule (Lecun-init weights, one-hot inputs) emits very small logits,
+# so at temperature 1.0 with zero bias the softmax transition is almost uniform
+# and the automaton degenerates into a near-RNG with NO learnable signal (the
+# next cell state is ~independent of the grid). The presets below rescale the
+# transition sharpness via the softmax temperature and an identity
+# (self-persistence) bias to place the dynamics in a chosen difficulty band.
+#
+# Each preset is labelled by the approximate ORACLE next-cell loss as a fraction
+# of the uniform baseline ln(d_state) -- i.e. the best cross-entropy a model
+# that perfectly learned the rule could reach. Lower => more predictable =>
+# easier. Numbers measured at grid=8, d_state=8, shared-rule seed=42 via
+# tools/validate.py; re-measure after changing _GRID_SIZE / _D_STATE / seed.
+#
+#   regime          (temperature, identity_bias)   ~oracle loss / ln(d_state)
+#   "unlearnable"   (1.0, 0.0)                      ~99%  (control / baseline)
+#   "learnable_50"  (0.2, 0.0)                      ~50%  (hard but learnable)
+#   "learnable_25"  (0.5, 2.0)                      ~25%  (clear local structure)
+#   "easy"          (0.1, 0.0)                      ~4%   (near-deterministic)
+_REGIMES = {
+    "unlearnable": (1.0, 0.0),
+    "learnable_50": (0.2, 0.0),
+    "learnable_25": (0.5, 2.0),
+    "easy": (0.1, 0.0),
+}
+
+# Selected difficulty. Change this string to tune the task; see _REGIMES.
+_REGIME = "learnable_50"
+_TEMPERATURE, _IDENTITY_BIAS = _REGIMES[_REGIME]
 # When True, a single randomly-initialised NCA network is created on first
 # call and reused for every sample. This makes the pattern space much easier
 # for downstream models to learn (one dynamical system instead of a
 # meta-learning problem over all possible NCAs) while retaining diversity
-# through stochastic updates and varying initial states. When False (the
-# original behaviour), each sample draws a fresh random rule.
+# through stochastic updates and varying initial states. When False each
+# sample draws a fresh random rule.
 _SHARED_RULE = False
 # Fixed seed for the shared network when _SHARED_RULE is True. Change this
 # to sample a different rule family from the NCA distribution.
@@ -117,18 +123,19 @@ _BURN_IN_STEPS = 4
 # minimum useful context is at least this many full frames.
 _MIN_FRAMES_PER_SAMPLE = 2
 
-# Reserved delimiter slots inside the caller's vocabulary. The vocab is the
-# contiguous range [0, vocab_size), so we simply take the first two IDs as
-# <grid> / </grid> tokens; cell states map to vocab[2 : 2 + d_state].
-_OPEN_IDX = 0
-_CLOSE_IDX = 1
-_N_RESERVED = 2
+# Reserved slots inside the caller's vocabulary. The vocab is the contiguous
+# range [0, vocab_size). ID 0 (PAD_ID from utils) is a dedicated pad token;
+# IDs 1 and 2 are the <grid> / </grid> delimiters; cell states map to
+# vocab[3 : 3 + d_state].
+_OPEN_IDX = 1
+_CLOSE_IDX = 2
+_N_RESERVED = 3
 
 # Module-level cache for the shared-rule network (populated lazily on first
 # call when _SHARED_RULE is True). The lock guards against races when
 # multiple dataloader workers trigger the first call concurrently.
 _shared_net: Optional["_NCANetwork"] = None
-_shared_net_lock: Optional[threading.Lock] = None
+_shared_net_lock: threading.Lock | None = None
 
 
 class _NCANetwork(nn.Module):
@@ -145,13 +152,13 @@ class _NCANetwork(nn.Module):
 
     def forward(self, x_hwc: torch.Tensor) -> torch.Tensor:
         # x_hwc: (H, W, C) one-hot state -> logits (H, W, C).
-        x = x_hwc.permute(2, 0, 1).unsqueeze(0)          # (1, C, H, W)
-        x = F.pad(x, (1, 1, 1, 1), mode="circular")      # toroidal padding
+        x = x_hwc.permute(2, 0, 1).unsqueeze(0)  # (1, C, H, W)
+        x = F.pad(x, (1, 1, 1, 1), mode="circular")  # toroidal padding
         x = self.conv1(x)
         x = self.conv2(x)
         x = F.relu(x)
         x = self.conv3(x)
-        return x.squeeze(0).permute(1, 2, 0)             # (H, W, C)
+        return x.squeeze(0).permute(1, 2, 0)  # (H, W, C)
 
 
 def _make_rule(d_state: int, gen: torch.Generator, device: torch.device) -> _NCANetwork:
@@ -181,7 +188,7 @@ def _rollout(
     temperature: float,
     gen: torch.Generator,
     device: torch.device,
-    net: Optional[_NCANetwork] = None,
+    net: _NCANetwork | None = None,
 ) -> torch.Tensor:
     """Run the NCA and return a (n_frames, grid_size, grid_size) int tensor (CPU).
 
@@ -195,21 +202,27 @@ def _rollout(
     # Initial state sampled on CPU (generator is CPU-bound), then moved.
     init_logits = torch.empty(d_state).normal_(generator=gen)
     probs0 = torch.softmax(init_logits, dim=-1)
-    state = torch.multinomial(
-        probs0, num_samples=grid_size * grid_size, replacement=True, generator=gen
-    ).reshape(grid_size, grid_size).to(device)
+    state = (
+        torch.multinomial(
+            probs0, num_samples=grid_size * grid_size, replacement=True, generator=gen
+        )
+        .reshape(grid_size, grid_size)
+        .to(device)
+    )
 
     total_steps = _BURN_IN_STEPS + n_frames
     frames = []
     for t in range(total_steps):
-        one_hot = F.one_hot(state, num_classes=d_state).float()            # (H, W, C)
-        logits = net(one_hot)                                              # (H, W, C)
+        one_hot = F.one_hot(state, num_classes=d_state).float()  # (H, W, C)
+        logits = net(one_hot)  # (H, W, C)
         logits = (logits + one_hot * identity_bias) / temperature
         probs = torch.softmax(logits, dim=-1).reshape(-1, d_state)
         # torch.multinomial requires a CPU generator; sample on CPU and move back.
-        state = torch.multinomial(
-            probs.cpu(), num_samples=1, generator=gen
-        ).to(device).reshape(grid_size, grid_size)
+        state = (
+            torch.multinomial(probs.cpu(), num_samples=1, generator=gen)
+            .to(device)
+            .reshape(grid_size, grid_size)
+        )
         if t >= _BURN_IN_STEPS:
             frames.append(state)
 
@@ -224,7 +237,7 @@ def _rollout(
     "into a 1D token stream. Produces locally-coherent, globally-varying "
     "patterns reminiscent of Lenia / Game-of-Life dynamics.",
 )
-def gen_nca(vocab: List[int], target_len: int, rng: random.Random) -> List[int]:
+def gen_nca(vocab: list[int], target_len: int, rng: random.Random) -> list[int]:
     # Reserve the first two vocab IDs as <grid> / </grid> delimiters; cell
     # states use the remainder. d_state is clamped to the remaining vocab.
     if len(vocab) < _N_RESERVED + 2:
@@ -284,16 +297,17 @@ def gen_nca(vocab: List[int], target_len: int, rng: random.Random) -> List[int]:
 
     # Serialize: per-frame [open_tok, row-major cells mapped to state_vocab, close_tok].
     cells = frames.reshape(n_frames, -1).tolist()
-    out: List[int] = []
+    out: list[int] = []
     for frame_cells in cells:
         out.append(open_tok)
         out.extend(state_vocab[s] for s in frame_cells)
         out.append(close_tok)
 
-    # Pad any residual tokens with the first vocab ID (0) so structure stays
-    # clean (no orphan delimiters). With frame_size = grid_size**2 + 2 = 66,
-    # all powers of 2 >= 256 leave only a small tail.
+    # Pad any residual tokens with the dedicated pad token (ID 0) so the
+    # structure stays clean -- no orphan delimiters and no spurious cell
+    # states. Mask its loss during training. With frame_size = grid_size**2 + 2
+    # = 66, all powers of 2 >= 256 leave only a small tail.
     if leftover:
-        out.extend([vocab[0]] * leftover)
+        out.extend([PAD_ID] * leftover)
 
     return out

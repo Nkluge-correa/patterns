@@ -1,5 +1,5 @@
 # gzip complexity metadata
-# generated: 2026-05-11T13:41:38
+# generated: 2026-06-17T15:35:27
 n_datasets: 18
 datasets:
   composite_mirror_repeat:
@@ -9,16 +9,17 @@ datasets:
     vocab_size: 256
     dtype: uint8
     compresslevel: 9
+    mode: token
     global:
       original_bytes: 1024000
-      compressed_bytes: 311955
-      gzip_complexity: 0.304644
-      compression_ratio: 3.282525
-      space_saving: 0.695356
+      compressed_bytes: 517892
+      gzip_complexity: 0.505754
+      compression_ratio: 1.977246
+      space_saving: 0.494246
     per_sample:
       n_evaluated: 1000
-      mean_gzip_complexity: 0.336432
-    elapsed_seconds: 7.08
+      mean_gzip_complexity: 0.551553
+    elapsed_seconds: 0.53
   copy:
     n_shards: 1
     n_samples: 1000
@@ -26,16 +27,17 @@ datasets:
     vocab_size: 256
     dtype: uint8
     compresslevel: 9
+    mode: token
     global:
       original_bytes: 1024000
-      compressed_bytes: 315530
-      gzip_complexity: 0.308135
-      compression_ratio: 3.245333
-      space_saving: 0.691865
+      compressed_bytes: 433118
+      gzip_complexity: 0.422967
+      compression_ratio: 2.364252
+      space_saving: 0.577033
     per_sample:
       n_evaluated: 1000
-      mean_gzip_complexity: 0.339535
-    elapsed_seconds: 6.92
+      mean_gzip_complexity: 0.465429
+    elapsed_seconds: 0.51
   counting_anbn:
     n_shards: 1
     n_samples: 1000
@@ -43,16 +45,17 @@ datasets:
     vocab_size: 256
     dtype: uint8
     compresslevel: 9
+    mode: token
     global:
       original_bytes: 1024000
-      compressed_bytes: 311669
-      gzip_complexity: 0.304364
-      compression_ratio: 3.285537
-      space_saving: 0.695636
+      compressed_bytes: 91342
+      gzip_complexity: 0.089201
+      compression_ratio: 11.210615
+      space_saving: 0.910799
     per_sample:
       n_evaluated: 1000
-      mean_gzip_complexity: 0.335703
-    elapsed_seconds: 7.02
+      mean_gzip_complexity: 0.121010
+    elapsed_seconds: 0.73
   counting_anbncn:
     n_shards: 1
     n_samples: 1000
@@ -60,16 +63,17 @@ datasets:
     vocab_size: 256
     dtype: uint8
     compresslevel: 9
+    mode: token
     global:
       original_bytes: 1024000
-      compressed_bytes: 313989
-      gzip_complexity: 0.306630
-      compression_ratio: 3.261261
-      space_saving: 0.693370
+      compressed_bytes: 98237
+      gzip_complexity: 0.095935
+      compression_ratio: 10.423771
+      space_saving: 0.904065
     per_sample:
       n_evaluated: 1000
-      mean_gzip_complexity: 0.337491
-    elapsed_seconds: 6.98
+      mean_gzip_complexity: 0.127966
+    elapsed_seconds: 0.60
   dyck:
     n_shards: 1
     n_samples: 1000
@@ -77,35 +81,17 @@ datasets:
     vocab_size: 256
     dtype: uint8
     compresslevel: 9
+    mode: token
     global:
       original_bytes: 1024000
-      compressed_bytes: 214894
-      gzip_complexity: 0.209857
-      compression_ratio: 4.765140
-      space_saving: 0.790143
+      compressed_bytes: 151923
+      gzip_complexity: 0.148362
+      compression_ratio: 6.740257
+      space_saving: 0.851638
     per_sample:
       n_evaluated: 1000
-      mean_gzip_complexity: 0.220347
-    elapsed_seconds: 7.50
-  fineweb_edu:
-    n_shards: 1
-    n_samples: 100000
-    n_tokens: 482395719
-    vocab_size: 256
-    dtype: uint8
-    compresslevel: 9
-    mode: text
-    text_column: text
-    global:
-      original_bytes: 482395719
-      compressed_bytes: 181658839
-      gzip_complexity: 0.376576
-      compression_ratio: 2.655504
-      space_saving: 0.623424
-    per_sample:
-      n_evaluated: 5000
-      mean_gzip_complexity: 0.491617
-    elapsed_seconds: 39.25
+      mean_gzip_complexity: 0.216958
+    elapsed_seconds: 7.28
   hierarchical:
     n_shards: 1
     n_samples: 1000
@@ -113,16 +99,17 @@ datasets:
     vocab_size: 256
     dtype: uint8
     compresslevel: 9
+    mode: token
     global:
       original_bytes: 1024000
-      compressed_bytes: 313507
-      gzip_complexity: 0.306159
-      compression_ratio: 3.266275
-      space_saving: 0.693841
+      compressed_bytes: 9693
+      gzip_complexity: 0.009466
+      compression_ratio: 105.643248
+      space_saving: 0.990534
     per_sample:
       n_evaluated: 1000
-      mean_gzip_complexity: 0.337782
-    elapsed_seconds: 7.08
+      mean_gzip_complexity: 0.036133
+    elapsed_seconds: 0.44
   identity:
     n_shards: 1
     n_samples: 1000
@@ -130,16 +117,17 @@ datasets:
     vocab_size: 256
     dtype: uint8
     compresslevel: 9
+    mode: token
     global:
       original_bytes: 1024000
-      compressed_bytes: 312870
-      gzip_complexity: 0.305537
-      compression_ratio: 3.272925
-      space_saving: 0.694463
+      compressed_bytes: 3181
+      gzip_complexity: 0.003106
+      compression_ratio: 321.911349
+      space_saving: 0.996894
     per_sample:
       n_evaluated: 1000
-      mean_gzip_complexity: 0.334739
-    elapsed_seconds: 7.30
+      mean_gzip_complexity: 0.028320
+    elapsed_seconds: 0.39
   interleaving:
     n_shards: 1
     n_samples: 1000
@@ -147,16 +135,17 @@ datasets:
     vocab_size: 256
     dtype: uint8
     compresslevel: 9
+    mode: token
     global:
       original_bytes: 1024000
-      compressed_bytes: 311228
-      gzip_complexity: 0.303934
-      compression_ratio: 3.290192
-      space_saving: 0.696066
+      compressed_bytes: 5693
+      gzip_complexity: 0.005560
+      compression_ratio: 179.870016
+      space_saving: 0.994440
     per_sample:
       n_evaluated: 1000
-      mean_gzip_complexity: 0.335310
-    elapsed_seconds: 7.04
+      mean_gzip_complexity: 0.030250
+    elapsed_seconds: 0.41
   mixer:
     n_shards: 1
     n_samples: 1000
@@ -164,16 +153,17 @@ datasets:
     vocab_size: 256
     dtype: uint8
     compresslevel: 9
+    mode: token
     global:
       original_bytes: 1024000
-      compressed_bytes: 454447
-      gzip_complexity: 0.443796
-      compression_ratio: 2.253288
-      space_saving: 0.556204
+      compressed_bytes: 508905
+      gzip_complexity: 0.496978
+      compression_ratio: 2.012163
+      space_saving: 0.503022
     per_sample:
       n_evaluated: 1000
-      mean_gzip_complexity: 0.481101
-    elapsed_seconds: 7.14
+      mean_gzip_complexity: 0.532792
+    elapsed_seconds: 0.52
   nca:
     n_shards: 1
     n_samples: 1000
@@ -181,16 +171,17 @@ datasets:
     vocab_size: 256
     dtype: uint8
     compresslevel: 9
+    mode: token
     global:
       original_bytes: 1024000
-      compressed_bytes: 482654
-      gzip_complexity: 0.471342
-      compression_ratio: 2.121603
-      space_saving: 0.528658
+      compressed_bytes: 273933
+      gzip_complexity: 0.267513
+      compression_ratio: 3.738140
+      space_saving: 0.732487
     per_sample:
       n_evaluated: 1000
-      mean_gzip_complexity: 0.554388
-    elapsed_seconds: 6.01
+      mean_gzip_complexity: 0.334464
+    elapsed_seconds: 2.96
   nested:
     n_shards: 1
     n_samples: 1000
@@ -198,91 +189,7 @@ datasets:
     vocab_size: 256
     dtype: uint8
     compresslevel: 9
-    global:
-      original_bytes: 1024000
-      compressed_bytes: 320799
-      gzip_complexity: 0.313280
-      compression_ratio: 3.192030
-      space_saving: 0.686720
-    per_sample:
-      n_evaluated: 1000
-      mean_gzip_complexity: 0.345179
-    elapsed_seconds: 6.91
-  noisy_palindrome:
-    n_shards: 1
-    n_samples: 1000
-    n_tokens: 1024000
-    vocab_size: 256
-    dtype: uint8
-    compresslevel: 9
-    global:
-      original_bytes: 1024000
-      compressed_bytes: 326100
-      gzip_complexity: 0.318457
-      compression_ratio: 3.140141
-      space_saving: 0.681543
-    per_sample:
-      n_evaluated: 1000
-      mean_gzip_complexity: 0.349289
-    elapsed_seconds: 6.90
-  palindrome:
-    n_shards: 1
-    n_samples: 1000
-    n_tokens: 1024000
-    vocab_size: 256
-    dtype: uint8
-    compresslevel: 9
-    global:
-      original_bytes: 1024000
-      compressed_bytes: 329222
-      gzip_complexity: 0.321506
-      compression_ratio: 3.110363
-      space_saving: 0.678494
-    per_sample:
-      n_evaluated: 1000
-      mean_gzip_complexity: 0.352443
-    elapsed_seconds: 6.92
-  periodic:
-    n_shards: 1
-    n_samples: 1000
-    n_tokens: 1024000
-    vocab_size: 256
-    dtype: uint8
-    compresslevel: 9
-    global:
-      original_bytes: 1024000
-      compressed_bytes: 311287
-      gzip_complexity: 0.303991
-      compression_ratio: 3.289569
-      space_saving: 0.696009
-    per_sample:
-      n_evaluated: 1000
-      mean_gzip_complexity: 0.335038
-    elapsed_seconds: 6.99
-  permutation_cycle:
-    n_shards: 1
-    n_samples: 1000
-    n_tokens: 1024000
-    vocab_size: 256
-    dtype: uint8
-    compresslevel: 9
-    global:
-      original_bytes: 1024000
-      compressed_bytes: 322437
-      gzip_complexity: 0.314880
-      compression_ratio: 3.175814
-      space_saving: 0.685120
-    per_sample:
-      n_evaluated: 1000
-      mean_gzip_complexity: 0.346400
-    elapsed_seconds: 7.17
-  random:
-    n_shards: 1
-    n_samples: 1000
-    n_tokens: 1024000
-    vocab_size: 256
-    dtype: uint8
-    compresslevel: 9
+    mode: token
     global:
       original_bytes: 1024000
       compressed_bytes: 1024345
@@ -292,7 +199,97 @@ datasets:
     per_sample:
       n_evaluated: 1000
       mean_gzip_complexity: 1.022461
-    elapsed_seconds: 5.86
+    elapsed_seconds: 0.59
+  noisy_palindrome:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    mode: token
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 1024345
+      gzip_complexity: 1.000337
+      compression_ratio: 0.999663
+      space_saving: -0.000337
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 1.022461
+    elapsed_seconds: 0.58
+  palindrome:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    mode: token
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 1024345
+      gzip_complexity: 1.000337
+      compression_ratio: 0.999663
+      space_saving: -0.000337
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 1.022461
+    elapsed_seconds: 0.59
+  periodic:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    mode: token
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 7320
+      gzip_complexity: 0.007148
+      compression_ratio: 139.890710
+      space_saving: 0.992852
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.031547
+    elapsed_seconds: 0.43
+  permutation_cycle:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    mode: token
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 13509
+      gzip_complexity: 0.013192
+      compression_ratio: 75.801318
+      space_saving: 0.986808
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.038074
+    elapsed_seconds: 0.42
+  random:
+    n_shards: 1
+    n_samples: 1000
+    n_tokens: 1024000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    mode: token
+    global:
+      original_bytes: 1024000
+      compressed_bytes: 1024345
+      gzip_complexity: 1.000337
+      compression_ratio: 0.999663
+      space_saving: -0.000337
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 1.022461
+    elapsed_seconds: 0.60
   reverse:
     n_shards: 1
     n_samples: 1000
@@ -300,16 +297,17 @@ datasets:
     vocab_size: 256
     dtype: uint8
     compresslevel: 9
+    mode: token
     global:
       original_bytes: 1024000
-      compressed_bytes: 327132
-      gzip_complexity: 0.319465
-      compression_ratio: 3.130235
-      space_saving: 0.680535
+      compressed_bytes: 1024345
+      gzip_complexity: 1.000337
+      compression_ratio: 0.999663
+      space_saving: -0.000337
     per_sample:
       n_evaluated: 1000
-      mean_gzip_complexity: 0.350943
-    elapsed_seconds: 7.32
+      mean_gzip_complexity: 1.022461
+    elapsed_seconds: 0.70
   shuffle_dyck:
     n_shards: 1
     n_samples: 1000
@@ -317,13 +315,14 @@ datasets:
     vocab_size: 256
     dtype: uint8
     compresslevel: 9
+    mode: token
     global:
       original_bytes: 1024000
-      compressed_bytes: 486734
-      gzip_complexity: 0.475326
-      compression_ratio: 2.103819
-      space_saving: 0.524674
+      compressed_bytes: 294188
+      gzip_complexity: 0.287293
+      compression_ratio: 3.480767
+      space_saving: 0.712707
     per_sample:
       n_evaluated: 1000
-      mean_gzip_complexity: 0.431438
-    elapsed_seconds: 6.15
+      mean_gzip_complexity: 0.381949
+    elapsed_seconds: 1.67

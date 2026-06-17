@@ -72,13 +72,10 @@ echo "# [${SLURM_JOB_ID}] Python executable: $(which python3) — $(python3 --ve
 python3 "$workdir/patterns/generator.py" \
     --vocab-size 256 \
     --max-context-length 4096 \
-    --length-min 8 \
-    --length-max 64 \
     --samples-per-pattern 250000 \
-    --patterns mixer shuffle_dyck \
-    --signal-floor 0.8 \
+    --patterns all \
     --seed 42 \
-    --output-dir "$workdir/data/fineweb-edu" \
+    --output-dir "$workdir/data" \
     --no-metadata 1>>"$out" 2>>"$err"
 
 #############################################

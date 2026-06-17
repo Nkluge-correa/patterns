@@ -128,7 +128,7 @@ These are simple patterns that can be generated with a small amount of code and 
 
 | Pattern                   | Schematic example          | What it probes                                                                  |
 |---------------------------|----------------------------|---------------------------------------------------------------------------------|
-| `random`                  | `qZ7ξ%`                    | Uniformly random tokens — unstructured baseline / control.                      |
+| `random`                  | `qZ7ξ%`                    | Uniformly random tokens (unstructured baseline / control).                      |
 | `identity`                | `AAAAAA`                   | Single-token repetition (zero-entropy floor).                                   |
 
 ### Simple patterns
@@ -202,7 +202,7 @@ To create diverse behaviors:
 In terms of tokenization:
 
 * We use **direct per-cell tokens** rather than the 2×2 patch tokenization from the reference paper (Lee et al. [2026](https://arxiv.org/html/2603.10055v1)). The project's shared vocabulary is the contiguous range $[0, 256)$, and the paper's patch scheme would inflate the effective vocab (e.g. $10^4 = 10000$ patch tokens for $k=10$ states) far beyond that budget. Each cell state maps bijectively to a single token ID via a simple offset: `cell_state s -> vocab[s + 2]`. So state `0 → 2`, state `1 → 3`, ..., state `7 → 9`. With an 8×8 grid this yields $64$ cell tokens per frame.
-* We serialize each timestep in **row-major order** (left-to-right, top-to-bottom) wrapped in reserved `<grid>` / `</grid>` delimiter tokens — the first two vocab IDs (`0`, `1`) — so the per-frame payload is $1 + 64 + 1 = 66$ tokens. The delimiters and the cell states live in disjoint ID ranges, so a frame is unambiguously parseable.
+* We serialize each timestep in **row-major order** (left-to-right, top-to-bottom) wrapped in reserved `<grid>` / `</grid>` delimiter tokens  (the first two vocab IDs, i.e., `0` and `1`) so the per-frame payload is $1 + 64 + 1 = 66$ tokens. The delimiters and the cell states live in disjoint ID ranges, so a frame is unambiguously parseable.
 * Each NCA sample uses only IDs `{0, 1}` (delimiters) and `{2..9}` (cell states), which trivially fits inside the project's `[0, 256)` vocabulary budget.
 * Frames are concatenated to fill `--max-context-length`. The minimum context is **two full frames (132 tokens)**; all powers of two >= 256 fit at least 3 frames (256 -> 3, 512 -> 7, 1024 -> 15, 2048 -> 31, 4096 -> 62). We pack as many *complete* frames as fit and never emit a half-frame (which would leave an orphan delimiter); any residual tail (fewer than 66 tokens) is filled with random cell-state IDs so the sample lands at exactly `--max-context-length`.
 
@@ -212,3 +212,89 @@ In terms of tokenization:
 * **This is the same core mechanism used in language modeling.** Prior work suggests that language models implicitly infer latent concepts or rules within a sequence. Predicting text requires conditioning on those inferred structures. Similar mechanisms appear in math, code, and formal algorithmic tasks. The hypothesis is that pre-pretraining strengthens this general-purpose inference ability (see https://arxiv.org/abs/2406.04216).
 * **Transfer occurs through attention-based in-context learning circuits.** Transferable knowledge is primarily stored in attention layers, not MLPs. They connect this to “induction heads,” attention circuits known to support in-context learning by copying and extending patterns from earlier tokens. These learned attention mechanisms can then transfer to downstream domains (see https://arxiv.org/abs/2209.11895).
 * **Deterministic systems can still produce learnable structure (epiplexity).** Even though these patterns are deterministic, they can generate complex signals that finite-capacity models cannot simply brute-force simulate. According to the concept of “epiplexity,” models must learn higher-level abstractions and representations to predict these systems efficiently. Training on diverse and complex patterns may therefore help models learn abstract representations that are also useful for natural language (see https://arxiv.org/html/2601.03220).
+
+## Experiment log
+
+### 2026-06-16: Data-generation bugfixes: dyck pad token, nested matching, and NCA pad + regime
+
+**Context.** Initial pre-pretraining experiments with ~50M-parameter models showed the models plateauing at a loss floor that seemed higher than the patterns' true entropy. We suspected either insufficient model capacity or bugs in the data-generation pipeline. Systematic audit of the generators revealed two independent sets of design deficiencies in `dyck.py` and `nca.py` that needed correction before pre-pretraining could produce meaningful signal.
+
+#### dyck.py
+
+**Problem 1: No pad token; truncation instead of masking.**
+
+Both `gen_dyck` and `gen_shuffle_dyck` returned `sequence[:target_len]`. If the greedy loop overshot `target_len` (which it routinely did), the sequence was silently truncated. While the truncated content was still valid Dyck structure, the approach didn't use the project-wide `PAD_ID` (ID 0) convention, so any parity-remainder slack wasn't loss-masked. This also meant ID 0 could appear as a legitimate bracket token instead of being reserved as the pad.
+
+**Problem 2: `_SHARED_IDS` used ID 0 as a content token.**
+
+When `_SHARED_IDS=True`, the old code mapped openers to `vocab[0], vocab[1]` for dyck and `vocab[:k]` for shuffle_dyck. Since ID 0 is the project-wide pad token, this would have placed bracket tokens in the pad slot, making it impossible to distinguish content from padding during training.
+
+**Problem 3: Naive budget handling in dyck.**
+
+The old generator used `depth < target_len // 2` as a heuristic for whether it could open, then appended all closers in a cleanup loop and truncated. This could produce sequences where the last token was a truncated balanced structure: learnable but messy, and not guaranteed to produce a valid balanced prefix up to `target_len`.
+
+**Problem 4: `shuffle_dyck` was a true shuffle language, not nested.**
+
+The old `shuffle_dyck` maintained a flat `counts` array of open-bracket counts per type and used `rng.choice(open_types)` to pick which closer to emit. This meant any closer type was equally valid for any open bracket — a *shuffle* Dyck language. In a shuffle language, the closer *type* is not deterministic from context (it's a uniform choice among open types), so the model faces irreducible entropy on closer prediction. This inflates the loss floor and obscures whether the model is actually learning hierarchical structure. The corrected version uses a proper stack discipline: a closer must match the most recently opened (top-of-stack) bracket type, making the closer type a deterministic function of the context — a genuine hierarchical dependency the model must track.
+
+#### nca.py
+
+**Problem 1: Tail padded with delimiter tokens, counted in loss.**
+
+The old code filled leftover slack with `vocab[0]`. Since `_OPEN_IDX=0` and `vocab[0]` was the `<grid>` delimiter, the tail consisted of repeated `<grid>` tokens that were counted in the training loss. A model could trivially predict `<grid>` after a certain position, creating a spurious learnable artifact unrelated to the NCA dynamics.
+
+**Problem 2: Delimiters at IDs 0 and 1 collided with the project-wide pad convention.**
+
+`_OPEN_IDX=0`, `_CLOSE_IDX=1`, `_N_RESERVED=2` meant the `<grid>` delimiter occupied ID 0: the same slot that should be reserved project-wide as `PAD_ID`. This would have placed `<grid>` tokens in the pad slot, making them loss-masked (invisible to training) and breaking the frame structure.
+
+**Problem 3: Default regime was unlearnable.**
+
+`_TEMPERATURE=1.0` and `_IDENTITY_BIAS=0.0` produced near-uniform noise (~99% of ln(d_state)). At this setting, the NCA's next-cell transition is essentially independent of the grid state: there is negligible learnable signal. Any model training on this
+would plateau at the uniform-entropy baseline regardless of capacity, making it useless as a pre-pretraining signal. The corrected version introduces a "learnable_50" regime with `_TEMPERATURE=0.2` and `_IDENTITY_BIAS=0.0`, which produces a more challenging but learnable signal (~50% of ln(d_state)) that encourages the model to track the grid state without being overwhelmed by noise.
+
+We also introduce a regime ladder with multiple presets (unlearnable, learnable_50, learnable_25, easy) to allow systematic exploration of how NCA complexity affects pre-pretraining transfer.
+
+| Regime         | (temperature, identity_bias) | ~oracle loss / ln(d_state) | Interpretation                                        |
+|----------------|------------------------------|----------------------------|-------------------------------------------------------|
+| `unlearnable`  | (1.0, 0.0)                   | ~99%                       | Near-uniform noise; no learnable signal (old default) |
+| `learnable_50` | (0.2, 0.0)                   | ~50%                       | Hard but learnable (new default)                      |
+| `learnable_25` | (0.5, 2.0)                   | ~25%                       | Clear local structure                                 |
+| `easy`         | (0.1, 0.0)                   | ~4%                        | Near-deterministic                                    |
+
+**Open questions.**
+
+- Does the nested constraint make shuffle_dyck *too* easy? The deterministic closer type means the model only needs to learn stack discipline, not bracket-type disambiguation.
+- The NCA regime was calibrated to produce a learnable signal when the grid size and d_state are fixed at 8, but this should be tuned if those parameters change. Should we add a `--nca-regime` flag to allow systematic exploration of NCA complexity?
+
+### 2026-06-17: Data-generation bugfixes: masked pad, whole-context fill, and counting randomization
+
+**Context.** After fixing the dyck and NCA generators (see 2026-06-16), we turned to the "simple" pattern pipeline (structural, counting, baseline) and found three additional independent design deficiencies that did not exist in the now-corrected `dyck` / `nca`
+generators, but were equally damaging to pre-pretraining signal.
+
+**Problem 1: ~50% of every sample was irreducible uniform noise.**
+
+`compose.py` spliced a single pattern instance into a uniform-random background filling ~50% of the context (`signal_floor = 0.5`). That background was iid uniform over all V vocab IDs and was counted in the training loss, contributing a fixed ~2.7 nats (at V=256) that no model could reduce. This pinned the observable training loss far above the pattern's true entropy floor, making it impossible to tell whether the model was actually learning the rule.
+
+**Problem 2: The task collapsed to "locate-and-copy."**
+
+`compose.py` stamped the *exact same pattern instance* verbatim at 45–60 non-overlapping positions. The only thing a model needed to do was locate one copy and echo it for all others: the structural distinction between a palindrome, a periodic block, and a counting  sequence was invisible to the loss objective. The model wasn't learning any generative law; it was learning a block-copy shortcut.
+
+**Problem 3: Counting patterns degenerated into positional lookups.**
+
+`counting_anbn` and `counting_anbncn` used `n = target_len // k`, which placed the symbol-switch boundary at a fixed, predictable position (e.g., always the midpoint for `k=2`). A model could solve this with a positional "first half = symbol A, second half = symbol B" heuristic: no actual counting required.
+
+**Problem 4: `pad_to` used random filler instead of a masked pad token.**
+
+The `pad_to` helper in `utils.py` filled divisibility slack with `rng.choice(vocab)` (random content IDs). The dyck and nca fixes (2026-06-16) had already established ID 0 as a dedicated, loss-masked pad; the simple patterns did not yet adopt this convention, so any trailing slack was counted in the loss as unpredictable noise.
+
+**Problem 5: Minor robustness issues.**
+
+- `noisy_palindrome` could theoretically corrupt pad positions (harmless today because `gen_palindrome` always fits exactly, but fragile).
+- `mixer` sub-generators' pad tails leaked into the mixer body (fixed by stripping pad before concatenation).
+
+All these issues were fixed, but we are still unsure if this will work, i.e., the models will learn the intended rules rather than finding shortcuts or being overwhelmed by noise. We created a `tool/validate.py` script to replay the generators and measure the actual oracle next-token entropy of each pattern type, which will help us set realistic expectations for the loss floors and interpret the training curves. See its current output in [`tools/validate.logs`](../tools/validate.logs).
+
+**Open questions.**
+
+- The counting floors (0.18 / 0.13 nats) are very low: will models actually learn the counting mechanism, or will they find a shortcut?
+- `noisy_palindrome` and `mixer` floors are loose lower bounds; we should measure the actual oracle next-token entropy via exact replay of the generating process (as done for `dyck` / `shuffle_dyck` / `counting_*`).
