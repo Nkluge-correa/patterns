@@ -1,0 +1,80 @@
+# gzip complexity metadata
+# generated: 2026-06-17T16:28:21
+n_datasets: 1
+datasets:
+  c4:
+    n_shards: 1
+    n_samples: 356317
+    n_tokens: 773269086
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    mode: text
+    text_column: text
+    global:
+      original_bytes: 773269086
+      compressed_bytes: 300480370
+      gzip_complexity: 0.388584
+      compression_ratio: 2.573443
+      space_saving: 0.611416
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.569745
+    elapsed_seconds: 64.69
+  codeparrot-clean:
+    n_shards: 1
+    n_samples: 100000
+    n_tokens: 1018905256
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    mode: text
+    text_column: content
+    global:
+      original_bytes: 1018905256
+      compressed_bytes: 230926553
+      gzip_complexity: 0.226642
+      compression_ratio: 4.412248
+      space_saving: 0.773358
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.330020
+    elapsed_seconds: 95.49
+  fineweb-edu:
+    n_shards: 1
+    n_samples: 100000
+    n_tokens: 482395719
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    mode: text
+    text_column: text
+    global:
+      original_bytes: 482395719
+      compressed_bytes: 181658839
+      gzip_complexity: 0.376576
+      compression_ratio: 2.655504
+      space_saving: 0.623424
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.489100
+    elapsed_seconds: 35.94
+  open-web-math:
+    n_shards: 1
+    n_samples: 55397
+    n_tokens: 422035225
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    mode: text
+    text_column: text
+    global:
+      original_bytes: 422035225
+      compressed_bytes: 142627176
+      gzip_complexity: 0.337951
+      compression_ratio: 2.959010
+      space_saving: 0.662049
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.463199
+    elapsed_seconds: 24.30
