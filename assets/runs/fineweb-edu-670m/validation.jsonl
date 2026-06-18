@@ -1,3 +1,0 @@
-{"kwh": 2.2711, "loss": 3.581839, "stage_name": "fineweb-edu", "status": "validation", "step": 1000, "val_time_s": 449.423214}
-{"kwh": 11.097279, "loss": 2.84094, "stage_name": "fineweb-edu", "status": "validation", "step": 5000, "val_time_s": 448.494175}
-{"kwh": 22.634775, "loss": 2.695436, "stage_name": "fineweb-edu", "status": "validation", "step": 10000, "val_time_s": 448.739257}
