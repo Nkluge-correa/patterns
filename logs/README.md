@@ -298,3 +298,113 @@ All these issues were fixed, but we are still unsure if this will work, i.e., th
 
 - The counting floors (0.18 / 0.13 nats) are very low: will models actually learn the counting mechanism, or will they find a shortcut?
 - `noisy_palindrome` and `mixer` floors are loose lower bounds; we should measure the actual oracle next-token entropy via exact replay of the generating process (as done for `dyck` / `shuffle_dyck` / `counting_*`).
+
+### 2026-06-18: Epiplexity — measuring structural information beyond loss and gzip
+
+**Context.** After fixing the data-generation pipeline, we face a measurement gap. Our current metrics — training loss, validation loss, and gzip complexity tell us *how compressible* a pattern is and *how predictable* it is once the rule is known (via `tools/validate.py`), but neither captures *how much learnable structure* a pattern contains. Two patterns can have the same validation loss yet differ radically in how many reusable circuits the model had to build to reach that loss. We need a metric that quantifies the structural information a model actually absorbs from training data, i.e., information that may transfer to downstream tasks. The **epiplexity** framework from Finzi et al. ([2026](https://arxiv.org/html/2601.03220)) could provide us that.
+
+#### What is epiplexity?
+
+**Epiplexity** ($S_T$) is the amount of *structural, learnable information* that a computationally bounded observer can extract from data. It decomposes the total information content of a dataset into two complementary components:
+
+| Component                | Symbol   | Meaning                                                                 | What it captures                                                                  |
+|--------------------------|----------|-------------------------------------------------------------------------|-----------------------------------------------------------------------------------|
+| **Epiplexity**           | $S_T(X)$ | Structural patterns the observer *can* learn and compress into a model  | Grammar rules, symmetries, long-range dependencies, emergent dynamics             |
+| **Time-bounded entropy** | $H_T(X)$ | Inherently unpredictable randomness under the observer's compute budget | CSPRNG output, uniform noise, irreducible stochasticity in the generating process |
+
+The total time-bounded information is $S_T + H_T$. The formal definition uses a two-part Minimum Description Length (MDL) objective under a fixed runtime budget $T$:
+
+$$S_T(X) = |\mathrm{P}^\star|,\quad \mathrm{P}^\star = \arg\min_{\mathrm{P} \in \mathcal{P}_T} \left\{ |\mathrm{P}| + \mathbb{E}\left[-\log P(X)\right] \right\}$$
+
+where $\mathcal{P}_T$ is the set of probabilistic models evaluable in time $T$.
+
+Given that gzip complexity approximates Kolmogorov complexity (total information content), and validation loss approximates the irreducible entropy (unpredictability), epiplexity fills the gap by quantifying the learnable structure that lies between these two extremes, i.e., would help to differentiate two datasets with the *compressability* of gzip but different *predictability*. As far as I know, the relation of epiplexity to pre-pretraining has not been explored before, but it seems like a promising lens for understanding why certain patterns are more effective for transfer than others.
+
+#### Why gzip complexity is insufficient
+
+Our current complexity metric (`tools/complexity.py`) measures:
+
+$$\text{complexity} = \frac{\text{compressed bytes}}{\text{original bytes}}$$
+
+This approximates **Kolmogorov complexity** — the *total* information content, not the *structural* component. It cannot distinguish three fundamentally different cases that all score the same:
+
+| Data                                    | Gzip complexity | $S_T$ (epiplexity) | $H_T$ (time-bounded entropy) | Why they differ                                                       |
+|-----------------------------------------|-----------------|--------------------|------------------------------|-----------------------------------------------------------------------|
+| `random` (uniform noise)                | $\approx 1.0$   | $\approx 0$        | $\approx n$ (maximal)        | Incompressible because it's actually random                           |
+| Richly structured (e.g., `dyck`, `nca`) | $\approx 1.0$   | **high**           | moderate                     | Incompressible because it encodes complex learnable structure         |
+| `palindrome`                            | $\approx 1.0$   | low                | moderate                     | "Incompressible" because LZ77's sliding window misses mirror symmetry |
+
+Gzip conflates these three cases. Epiplexity will disambiguate them: `random` has $S_T \approx 0$ (nothing to learn), `dyck` has $S_T \gg 0$ (rich structure absorbed), and `palindrome` falls somewhere in between. For pre-pretraining, we want patterns with **high $S_T$**, i.e., data that forces the model to build non-trivial internal circuits.
+
+The three-part spectrum of all data:
+
+```
+                    High Epiplexity (S_T)
+                    (complex, structured, learnable)
+                           /\
+                          /  \
+                         /    \
+                        /      \
+                       /        \
+                      /          \
+    Low S_T, Low H_T /            \ High S_T, High H_T
+    (trivial,       /              \ (natural language,
+     predictable)  /                \  chess, NCA)
+                  /__________________\
+    Low S_T, High H_T  
+    (CSPRNG, uniform noise,  
+     shuffled pixels, Rule 30 ECA)
+```
+
+#### Prequential estimation methodology
+
+True epiplexity is incomputable (it requires searching over all programs). But we can use the **prequential coding** approximation--the simplest method from Finzi et al. (2026)--which requires only a loss curve:
+
+$$S_T(X) \approx \sum_{i=0}^{M-1} \left( \log\frac{1}{P_i(Z_i)} - \log\frac{1}{P_M(Z_i)} \right)$$
+
+$$H_T(X) \approx \mathbb{E}\left[\log\frac{1}{P_M(X)}\right] \quad\text{(final validation loss × dataset size)}$$
+
+In plain terms:
+
+- **$S_T$** is the **area between the training loss curve and the final training loss**, accumulated over all training tokens. Each step where the model's loss exceeds its final floor contributes excess nats — this excess *is* the structural information the model absorbed.
+- **$H_T$** is the **final validation loss** — the irreducible per-token unpredictability that remains even after the model has extracted all learnable structure.
+
+The time bound $T$ is the total FLOPs spent: $T = 6ND + 2N\mathcal{D}$ (forward + backward passes for $N$ parameters, $D$ training tokens, $\mathcal{D}$ test tokens).
+
+**Key properties of the prequential estimate:**
+
+| Property                                          | Implication                                                                                                                              |
+|---------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
+| Convex loss curves (steep early drop → long tail) | The area is concentrated in early training; $S_T$ captures rapid rule discovery                                                          |
+| $S_T$ is an **upper bound** on true epiplexity    | We can only overestimate, never underestimate — conservative for ranking                                                                 |
+| $S_T$ is **observer-relative**                    | Depends on model size $N$ and compute budget $T$; a pattern that looks random to a 1M-param model may show structure to a 1B-param model |
+| $S_T$ saturates                                   | Once the model has extracted all learnable structure, further training adds negligible $S_T$ — the loss curve flattens                   |
+
+#### Implementation: `tools/epiplexity.py`
+
+We implemented the prequential estimator as a standalone CLI tool that computes $S_T$ and $H_T$ from training artifacts.
+
+#### Example: FineWeb-Edu 670M baseline
+
+As a reference point, we ran the tool on our existing 670M-parameter model trained on 5.2B tokens of FineWeb-Edu natural language data. The full report is at [`logs/runs/fineweb-edu-670m/epiplexity.md`](runs/fineweb-edu-670m/epiplexity.md).
+
+| Metric                                   | Value                 | Interpretation                                                                                                |
+|------------------------------------------|-----------------------|---------------------------------------------------------------------------------------------------------------|
+| $S_T$ (epiplexity)                       | **0.6533 bits/token** | The model absorbed ~0.65 bits of structural information per training token                                    |
+| $H_T$ (time-bounded entropy)             | **3.8887 bits/token** | ~3.89 bits/token of irreducible unpredictability remains                                                      |
+| Structural fraction $S_T / (S_T + H_T)$  | **14.38%**            | Natural language is ~14% learnable structure, ~86% irreducible entropy at this scale                          |
+| $S_T$ per 1B tokens                      | **653M bits**         | Normalized for cross-dataset comparison                                                                       |
+| Gap to language entropy floor (1.8 nats) | **0.8954 nats**       | The model is still well above the estimated entropy floor — more training would help                          |
+| Gzip complexity                          | 0.3766                | Natural language is moderately compressible by gzip, but $S_T$ reveals the *structural* fraction specifically |
+
+This gives us a natural-language baseline: when we pre-pretrain on patterns and then transfer to FineWeb-Edu, we can compare $S_T$ of the pre-pretraining phase against this 0.65 bits/token figure, and track whether structural information acquired during pre-pretraining is conserved or amplified in the downstream phase.
+
+#### How epiplexity maps onto our research questions
+
+| Our question                                                | Epiplexity's answer                                                                                                                                                                |
+|-------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Which patterns are most "useful" for pre-pretraining?       | Patterns with **high $S_T$** — not just low loss. High $S_T$ means the model had to build non-trivial internal circuits.                                                           |
+| How does pattern complexity affect downstream performance?  | $S_T$ quantifies structural complexity *as absorbed by the model* — more relevant than gzip or oracle loss alone.                                                                  |
+| Is gzip complexity a good proxy for "learnable complexity"? | **No.** Gzip conflates noise and structure. $S_T$ separates them. A quadrant plot ($S_T$ vs. gzip) would reveal which patterns are high-structure vs. merely incompressible noise. |
+| How much pattern data is enough?                            | $S_T$ saturates as the model extracts all available structure. When $S_T$ stops growing with more data, the pattern is "exhausted."                                                |
+| Does pre-pretraining build transferable circuits?           | Measure $S_T$ during pre-pretraining, then measure it again during NL training. If pattern-acquired $S_T$ is conserved or amplified, transfer is occurring.                        |

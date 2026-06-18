@@ -9,38 +9,44 @@ following Finzi et al. (2026):
 Usage:
 Accurate (with loss and validation curve files):
     python tools/epiplexity.py \\
-        --model-params    670e6 \\
-        --train-tokens    5.2e9 \\
-        --loss-curve      training.jsonl \\
-        --val-curve       validation.jsonl
+        --model-params 670e6 \\
+        --train-tokens 5.2e9 \\
+        --loss-curve training.jsonl \\
+        --val-curve validation.jsonl \\
+        --json \\
+        --output report.json
 
 Approximate (without a loss curve — uses endpoints only):
     python tools/epiplexity.py \\
-        --model-params    670e6 \\
-        --train-tokens    5.2e9 \\
-        --initial-loss    11.08 \\
+        --model-params 670e6 \\
+        --train-tokens 5.2e9 \\
+        --initial-loss 11.08 \\
         --final-train-loss 2.63 \\
-        --final-val-loss  2.6954
+        --final-val-loss  2.6954 \\
+        --output report.md
 
 With reference metrics:
     python tools/epiplexity.py \\
-        --model-params    670e6 \\
-        --train-tokens    5.2e9 \\
-        --loss-curve      training.jsonl \\
-        --val-curve       validation.jsonl \\
+        --model-params 670e6 \\
+        --train-tokens 5.2e9 \\
+        --loss-curve training.jsonl \\
+        --val-curve validation.jsonl \\
         --gzip-complexity 0.3766 \\
         --language-entropy 1.9 \\
-        --run-name        fineweb-edu-670m
+        --run-name fineweb-edu-670m \\
+        --json \\
+        --output report.json
 
 For synthetic patterns, use --oracle-loss (known generating process):
     python tools/epiplexity.py \\
-        --model-params    10e6 \\
-        --train-tokens    100e6 \\
-        --final-val-loss  0.70 \\
-        --loss-curve      training.jsonl \\
+        --model-params 10e6 \\
+        --train-tokens 100e6 \\
+        --final-val-loss 0.70 \\
+        --loss-curve training.jsonl \\
         --gzip-complexity 0.15 \\
-        --oracle-loss     0.659 \\
-        --run-name        dyck
+        --oracle-loss 0.659 \\
+        --run-name dyck \\
+        --output report.md
 """
 
 import argparse
@@ -93,7 +99,7 @@ class EpiplexityResult:
 
     # Language / data entropy floor
     # For natural language: the estimated Shannon entropy of the language
-    #   (e.g. ~1.8–2.2 nats/token for English with subword tokenizers).
+    #   (e.g. ~1.8-2.2 nats/token for English with subword tokenizers).
     # For synthetic patterns, use oracle_loss_nats instead, since it's exact.
     # When set, the report shows how close the model is to this floor.
     language_entropy_nats: float | None = None
@@ -232,7 +238,7 @@ def compute_epiplexity(
 
         # Assume linear decay. This *underestimates* S_T because real loss
         # curves are convex (steep early drop, slow tail).  The true S_T is
-        # between the linear approximation and ~1.5× the linear approximation.
+        # between the linear approximation and ~1.5x the linear approximation.
         excess_per_token = 0.5 * (initial_loss - final_train_loss)
         result.S_nats_total = excess_per_token * train_tokens
         result.S_bits_per_train_token = excess_per_token / LN2
@@ -262,27 +268,6 @@ def compute_epiplexity(
         result.structural_fraction = 0.0
 
     return result
-
-
-def _fmt(n: float, suffix: str = "") -> str:
-    """Human-readable number with SI prefixes."""
-    if abs(n) < 1e-9:
-        return f"0{suffix}"
-    for threshold, prefix in [
-        (1e18, "E"),
-        (1e15, "P"),
-        (1e12, "T"),
-        (1e9, "B"),
-        (1e6, "M"),
-        (1e3, "K"),
-    ]:
-        if abs(n) >= threshold:
-            return f"{n / threshold:.2f}{prefix}{suffix}"
-    if abs(n) >= 100:
-        return f"{n:.2f}{suffix}"
-    if abs(n) >= 1:
-        return f"{n:.4f}{suffix}"
-    return f"{n:.6f}{suffix}"
 
 
 def render_report(result: EpiplexityResult, json_output: bool = False) -> str:
@@ -319,7 +304,7 @@ def render_report(result: EpiplexityResult, json_output: bool = False) -> str:
     L.append("")
 
     if result.warnings:
-        L.append("## \u26a0 Warnings")
+        L.append("## ⚠️ Warnings")
         for w in result.warnings:
             L.append(f"- {w}")
         L.append("")
@@ -330,8 +315,8 @@ def render_report(result: EpiplexityResult, json_output: bool = False) -> str:
     L.append("| Parameter | Value |")
     L.append("|---|---|")
     L.append(f"| Model parameters | {result.model_params:,} |")
-    L.append(f"| Total training tokens | {_fmt(result.total_train_tokens)} |")
-    L.append(f"| Total training FLOPs | {_fmt(result.total_train_flops, ' FLOPs')} |")
+    L.append(f"| Total training tokens | {result.total_train_tokens:,} |")
+    L.append(f"| Total training FLOPs | {result.total_train_flops:.2e} FLOPs |")
     if result.n_loss_points:
         L.append(f"| Loss-curve points | {result.n_loss_points:,} |")
     L.append(f"| Initial training loss | {result.initial_train_loss:.4f} nats/token |")
@@ -347,7 +332,7 @@ def render_report(result: EpiplexityResult, json_output: bool = False) -> str:
     L.append(
         f"| **Epiplexity** (structural info) | $S_T$ | "
         f"**{result.S_bits_per_train_token:.4f}** | "
-        f"{_fmt(result.S_nats_total / LN2, ' bits')} |"
+        f"{result.S_nats_total / LN2:.2e} bits |"
     )
     L.append(
         f"| **Time-bounded entropy** (random info) | $H_T$ | "
@@ -356,6 +341,20 @@ def render_report(result: EpiplexityResult, json_output: bool = False) -> str:
     )
     L.append(
         f"| **Total information** | $S_T + H_T$ | **{result.total_info_bits_per_token:.4f}** | — |"
+    )
+    L.append("")
+    L.append(
+        "* **Epiplexity $S_T$** — measures the structural, learnable information the model "
+        "absorbed from the training data."
+    )
+    L.append(
+        "* **Time-bounded entropy $H_T$** — the remaining per-token unpredictability in the "
+        "test data."
+    )
+    L.append("* **$S_T + H_T$** — together they sum to the total time-bounded information content.")
+    L.append(
+        "* **High $S_T / (S_T+H_T)$ ratio** — means the data contains rich learnable structure "
+        "beyond surface statistics."
     )
     L.append("")
 
@@ -385,6 +384,28 @@ def render_report(result: EpiplexityResult, json_output: bool = False) -> str:
         L.append(f"| Gap to entropy floor | {gap:.4f} nats ({gap / LN2:.4f} bits) |")
     L.append(f"| $S_T$ per 1B training tokens | {result.S_bits_per_train_token * 1e9:,.0f} bits |")
     L.append("")
+    if result.language_entropy_nats is not None:
+        L.append(
+            "* **Structural fraction** — the proportion of total information that is "
+            "learnable structure (vs. irreducible randomness)."
+        )
+        L.append(
+            "* **Language / data entropy floor** — the estimated Shannon entropy of the data "
+            "source — the minimum achievable loss."
+        )
+        L.append(
+            "* **$H_T$ as fraction of entropy floor** — shows how close the model is to this "
+            "minimum: 100% means the model has reached the entropy floor; values above 100% "
+            "mean there is still room to improve."
+        )
+        L.append("* **$S_T$ per 1B tokens** — normalizes epiplexity for cross-dataset comparison.")
+    else:
+        L.append(
+            "* **Structural fraction** — the proportion of total information that is "
+            "learnable structure (vs. irreducible randomness)."
+        )
+        L.append("* **$S_T$ per 1B tokens** — normalizes epiplexity for cross-dataset comparison.")
+    L.append("")
 
     # Reference
     if result.gzip_complexity is not None or result.oracle_loss_nats is not None:
@@ -399,6 +420,17 @@ def render_report(result: EpiplexityResult, json_output: bool = False) -> str:
                 f"| Oracle next-token loss | {result.oracle_loss_nats:.4f} nats "
                 f"({result.oracle_loss_nats / LN2:.4f} bits) |"
             )
+        L.append("")
+        L.append(
+            "* **Gzip complexity** (compressed / original bytes) — approximates total "
+            "Kolmogorov complexity. Unlike epiplexity, it cannot separate random noise from "
+            "learnable structure: both incompressible noise and richly structured data score "
+            "near 1.0."
+        )
+        L.append(
+            "* **Oracle next-token loss** — the irreducible entropy of the generating "
+            "process — only knowable for synthetic patterns."
+        )
         L.append("")
 
     # Interpretation
@@ -531,9 +563,9 @@ def main() -> None:
         help="Shannon entropy floor of the data source, in "
         "nats/token.  For NATURAL LANGUAGE this is the "
         "estimated entropy of the language itself "
-        "(~1.8–2.2 nats/token for English with subword "
-        "tokenizers; derived from ~0.6–1.3 bits/char × "
-        "~4 chars/token, converted with ×ln(2)).  For "
+        "(~1.8-2.2 nats/token for English with subword "
+        "tokenizers; derived from ~0.6-1.3 bits/char x "
+        "~4 chars/token, converted with xln(2)).  For "
         "synthetic patterns, prefer --oracle-loss instead.",
     )
 
