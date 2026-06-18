@@ -135,7 +135,7 @@ _N_RESERVED = 3
 # call when _SHARED_RULE is True). The lock guards against races when
 # multiple dataloader workers trigger the first call concurrently.
 _shared_net: Optional["_NCANetwork"] = None
-_shared_net_lock: threading.Lock | None = None
+_shared_net_lock: Optional[threading.Lock] = None
 
 
 class _NCANetwork(nn.Module):
