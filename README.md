@@ -21,6 +21,7 @@ The codebase is split across a few focused modules — see [Where things live](#
 | Recorded runs and training logs                | [`logs/runs/`](logs/runs)                                |
 | Complexity + Eoiplexity + validation tools     | [`tools/`](tools)                                        |
 | Complexity measurement                         | [`tools/complexity.py`](tools/complexity.py)             |
+| Count unique tokens generated per pattern      | [`tools/count_vocab.py`](tools/count_vocab.py)           |
 | Epiplexity calculation and reporting           | [`tools/epiplexity.py`](tools/epiplexity.py)             |
 | Parquet -> JSONL converter                     | [`tools/parquet_to_jsonl.py`](tools/parquet_to_jsonl.py) |
 | Validation of generators (Oracles)             | [`tools/validate.py`](tools/validate.py)                 |
@@ -93,6 +94,20 @@ With `--no-metadata`, only `input_ids` is written — useful when the files are 
 Every pattern receives a **content vocabulary** with the reserved pad token (see below) removed, so that token ID `0` can only ever appear as the trailing slack appended by `pad_to`. Three patterns (`dyck`, `shuffle_dyck`, `nca`) manage reserved IDs internally and receive the full vocabulary including ID 0.
 
 Token ID `0` (defined as `PAD_ID` in `utils.py`) is a **reserved pad token** used exclusively for the trailing slack when a generator's structural output doesn't divide evenly into `max_context_length`. It never appears as genuine pattern content (generators receive a vocab with ID 0 already stripped). Its loss must be **masked during training**.
+
+### Unique token counts
+
+Not every pattern uses the full `--vocab-size` range. Because PAD_ID (`0`) is stripped from the content vocabulary for most patterns, and because some generators always fill the context window exactly (never needing tail padding), the actual number of distinct token IDs that appear in the output can be 255 rather than 256 — or far fewer for the patterns that manage their own reserved IDs (`dyck`, `shuffle_dyck`, `nca`).
+
+Use [`tools/count_vocab.py`](tools/count_vocab.py) to audit unique token counts after generation:
+
+```bash
+python tools/count_vocab.py --data-dir ./data/
+```
+
+The docstring of [`generator.py`](generator.py) includes a reference table of expected counts per pattern for `--vocab-size 256` and `--max-context-length 4096`.
+
+> **Note**: the unique token count is important to estimate the proper vocab size for a model trained on these patterns. Making sure the model's vocab size matches the actual number of distinct token IDs in the data makes the interpretation of perplexity more intuitive, i.e., if the model does not break the ln(1/actual_vocab_size) mark, then it islearning nothing beyond uniform guessing.
 
 ### Controlling NCA difficulty (regimes)
 

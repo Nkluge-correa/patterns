@@ -78,6 +78,45 @@ Here's a quick reference:
 
 For practical use, **256** is the sweet spot: 1 byte per token, no wasted bits, gzip operates directly on
 the token stream with no encoding artifact, and the vocab is large enough for all patterns.
+
+**Expected unique token counts (--vocab-size 256):**
+
+For most patterns, PAD_ID (0) is stripped from the vocabulary before the
+generator sees it (see `compose.py`), so generators only draw from IDs
+1-255. Whether token 0 appears in the final sample depends on whether the
+generator's output falls short of `--max-context-length` and needs padding:
+
+- **255 unique tokens** — the generator always exactly fills the context
+  window (no padding with ID 0 is ever needed).
+- **256 unique tokens** — the generator's output doesn't always divide
+  evenly into the context length, so `pad_to` fills the slack with ID 0
+  at least some of the time.
+
+dyck, shuffle_dyck, and nca have their own internal ID management and may use the
+full vocab range for their patterns. To make things clear, here is a table of
+expected unique token counts per pattern with `--vocab-size 256` and
+`--max-context-length 4096`:
+
+| Pattern                 | Unique Tokens | Why                                                           |
+|-------------------------|---------------|---------------------------------------------------------------|
+| periodic                | 255           | Over-generates, truncates exactly                             |
+| palindrome              | 255           | Built to exact target length                                  |
+| copy                    | 256           | Requires padding                                              |
+| reverse                 | 256           | Requires padding                                              |
+| counting_anbn           | 255           | Even segment sizes,                                           |
+| counting_anbncn         | 256           | Requires padding (uneven segment sizes)                       |
+| nested                  | 255           | Built to exact target length                                  |
+| interleaving            | 255           | Over-generates, truncates exactly                             |
+| permutation_cycle       | 255           | Over-generates, truncates exactly                             |
+| hierarchical            | 256           | Requires padding (uneven segment sizes)                       |
+| noisy_palindrome        | 255           | Inherits palindrome's exact sizing                            |
+| nca                     | 11            | Manages own reserved IDs (pad/grid markers)                   |
+| dyck                    | 2             | Single bracket pair (even segment does not require padding)   |
+| shuffle_dyck            | 6             | k=3 bracket pairs (even segment sizes do not require padding) |
+| random                  | 255           | Exact length, no padding needed                               |
+| identity                | 255           | Exact length, no padding needed                               |
+| composite_mirror_repeat | 255           | Over-generates, truncates exactly                             |
+| mixer                   | 256           | Uses ID 0 as segment separator + tail pad                     |
 """
 
 import argparse
