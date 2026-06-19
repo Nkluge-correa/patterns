@@ -6,29 +6,30 @@ The codebase is split across a few focused modules — see [Where things live](#
 
 ## Where things live
 
-| Concern                                        | File                                                     |
-|------------------------------------------------|----------------------------------------------------------|
-| Generators and their implementation contract   | [`generators/`](generators)                              |
-| Pattern registration (imports all modules)     | [`generators/__init__.py`](generators/__init__.py)       |
-| Baseline / control patterns                    | [`generators/baseline.py`](generators/baseline.py)       |
-| Counting patterns                              | [`generators/counting.py`](generators/counting.py)       |
-| Dyck / bracket patterns                        | [`generators/dyck.py`](generators/dyck.py)               |
-| Mixer pattern                                  | [`generators/mixer.py`](generators/mixer.py)             |
-| Neural cellular automaton patterns             | [`generators/nca.py`](generators/nca.py)                 |
-| Structural patterns                            | [`generators/structural.py`](generators/structural.py)   |
-| Background, motivation, and theory             | [`logs/`](logs)                                          |
-| Recorded complexity measurements               | [`logs/measurements/`](logs/measurements)                |
-| Recorded runs and training logs                | [`logs/runs/`](logs/runs)                                |
-| Complexity + Eoiplexity + validation tools     | [`tools/`](tools)                                        |
-| Complexity measurement                         | [`tools/complexity.py`](tools/complexity.py)             |
-| Count unique tokens generated per pattern      | [`tools/count_vocab.py`](tools/count_vocab.py)           |
-| Epiplexity calculation and reporting           | [`tools/epiplexity.py`](tools/epiplexity.py)             |
-| Parquet -> JSONL converter                     | [`tools/parquet_to_jsonl.py`](tools/parquet_to_jsonl.py) |
-| Validation of generators (Oracles)             | [`tools/validate.py`](tools/validate.py)                 |
-| Composition into a full sample                 | [`compose.py`](compose.py)                               |
-| CLI + `main()` (create samples here)           | [`generator.py`](generator.py)                           |
-| Registry dict + `@register` decorator          | [`registry.py`](registry.py)                             |
-| Vocab filtering + `pad_to` + `sample_distinct` | [`utils.py`](utils.py)                                   |
+| Concern                                                 | File                                                       |
+|---------------------------------------------------------|------------------------------------------------------------|
+| Generators and their implementation contract            | [`generators/`](generators)                                |
+| Pattern registration (imports all modules)              | [`generators/__init__.py`](generators/__init__.py)         |
+| Baseline / control patterns                             | [`generators/baseline.py`](generators/baseline.py)         |
+| Counting patterns                                       | [`generators/counting.py`](generators/counting.py)         |
+| Dyck / bracket patterns                                 | [`generators/dyck.py`](generators/dyck.py)                 |
+| Mixer pattern                                           | [`generators/mixer.py`](generators/mixer.py)               |
+| Neural cellular automaton patterns                      | [`generators/nca.py`](generators/nca.py)                   |
+| Structural patterns                                     | [`generators/structural.py`](generators/structural.py)     |
+| Background, motivation, and theory                      | [`logs/`](logs)                                            |
+| Recorded complexity measurements                        | [`logs/measurements/`](logs/measurements)                  |
+| Recorded runs and training logs                         | [`logs/runs/`](logs/runs)                                  |
+| Complexity + Epiplexity + validation tools              | [`tools/`](tools)                                          |
+| Complexity measurement                                  | [`tools/complexity.py`](tools/complexity.py)               |
+| Count unique tokens generated per pattern               | [`tools/count_vocab.py`](tools/count_vocab.py)             |
+| Calculate the Pareto frontier of epiplexity vs. compute | [`tools/epiplexity_pareto.py`](tools/epiplexity_pareto.py) |
+| Epiplexity calculation and reporting                    | [`tools/epiplexity.py`](tools/epiplexity.py)               |
+| Parquet -> JSONL converter                              | [`tools/parquet_to_jsonl.py`](tools/parquet_to_jsonl.py)   |
+| Validation of generators (Oracles)                      | [`tools/validate.py`](tools/validate.py)                   |
+| Composition into a full sample                          | [`compose.py`](compose.py)                                 |
+| CLI + `main()` (create samples here)                    | [`generator.py`](generator.py)                             |
+| Registry dict + `@register` decorator                   | [`registry.py`](registry.py)                               |
+| Vocab filtering + `pad_to` + `sample_distinct`          | [`utils.py`](utils.py)                                     |
 
 ## The pattern catalogue
 

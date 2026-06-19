@@ -211,14 +211,15 @@ def compute_epiplexity(
         # Tokens per step
         tokens_per_step = train_tokens / len(loss_curve)
 
-        total_excess = 0.0
-        n_below = 0
-        for loss in loss_curve:
-            excess = loss - ftl
-            if excess > 0:
-                total_excess += excess
-            elif excess < -1e-9:
-                n_below += 1
+        # Trapezoidal integration of excess loss over tokens,
+        # matching the repo's np.trapz(Ls - L_final, Ts).
+        # Each step i covers tokens [i * Δt, (i+1) * Δt] where
+        # Δt = tokens_per_step.  With uniform spacing this is
+        # equivalent to the composite trapezoidal rule.
+        raw_excess = [loss - ftl for loss in loss_curve]
+        n_below = sum(1 for e in raw_excess if e < -1e-9)
+        # Clamp negative excess to 0 (numerical noise near the floor)
+        excess = [max(e, 0.0) for e in raw_excess]
 
         if n_below > 0:
             result.warnings.append(
@@ -226,8 +227,10 @@ def compute_epiplexity(
                 f"({ftl:.4f}); the model may still be improving."
             )
 
-        result.S_nats_total = total_excess * tokens_per_step
-        result.S_bits_per_train_token = (total_excess / len(loss_curve)) / LN2
+        # Composite trapezoidal rule:  Δt · Σ (eᵢ + eᵢ₊₁)/2
+        trapz_sum = sum((excess[i] + excess[i + 1]) / 2 for i in range(len(excess) - 1))
+        result.S_nats_total = trapz_sum * tokens_per_step
+        result.S_bits_per_train_token = (trapz_sum / len(loss_curve)) / LN2
         result.loss_area_nats = sum(loss_curve)
 
     elif initial_loss is not None and final_train_loss is not None:
@@ -236,18 +239,19 @@ def compute_epiplexity(
         result.initial_train_loss = initial_loss
         result.final_train_loss = final_train_loss
 
-        # Assume linear decay. This *underestimates* S_T because real loss
-        # curves are convex (steep early drop, slow tail).  The true S_T is
-        # between the linear approximation and ~1.5x the linear approximation.
+        # Assume linear decay.  Real loss curves are convex (steep early
+        # drop, slow tail) so they lie BELOW their chord — the linear
+        # approximation OVERESTIMATES S_T.  The true value is typically
+        # 0.5–0.9× the linear approximation depending on curve shape.
         excess_per_token = 0.5 * (initial_loss - final_train_loss)
         result.S_nats_total = excess_per_token * train_tokens
         result.S_bits_per_train_token = excess_per_token / LN2
 
         result.warnings.append(
             "S_T approximated from endpoints only (linear-decay assumption). "
-            "For convex loss curves (steep early drop → long tail) this "
-            "OVERESTIMATES S_T, potentially by 5-10x.  Provide --loss-curve "
-            "for an accurate measurement."
+            "For convex loss curves (steep early drop -> long tail) this "
+            "typically OVERESTIMATES S_T by 1.5-3x (more for very steep "
+            "initial drops).  Provide --loss-curve for an accurate measurement."
         )
 
     else:
