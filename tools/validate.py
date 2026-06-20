@@ -512,17 +512,17 @@ def main():
         sys.stdout = _Tee(_old_stdout, _log_fh)
 
         rng = random.Random(0)
-        vocab = get_vocab(12)  # 12 is enough for all patterns.
-        L = 1024
-        N = 2000
+        L = 4096
+        N = 10000
 
         # shuffle_dyck
+        vocab = get_vocab(7)  # Enough for k=3 types + pad; the generators ignore the excess vocab.
         sd = [gen_shuffle_dyck(vocab, L, rng) for _ in range(N)]
         sd_bodies = [_strip_pad(s) for s in sd]
         sd_full_len = sum(len(s) == L for s in sd)
         sd_balanced = sum(is_valid_shuffle_dyck(b) for b in sd_bodies)
         sd_nested = sum(is_valid_nested_dyck(b) for b in sd_bodies)
-        print("shuffle_dyck (nested Dyck-k, k=3, vocab=7, len=1024):")
+        print(f"shuffle_dyck (nested Dyck-k, k=3, vocab={len(vocab)}, len={L}):")
         print(f"  exact length == L              : {sd_full_len}/{N}")
         print(f"  valid shuffle-Dyck (balanced)  : {sd_balanced}/{N}")
         print(f"  valid NESTED Dyck-k (stack)    : {sd_nested}/{N}")
@@ -531,11 +531,12 @@ def main():
         print(f"  ln(6) uniform baseline         : {math.log(6):.4f}")
 
         # dyck-1
+        vocab = get_vocab(3)  # just open, close, pad; the generators ignore the excess vocab
         d1 = [gen_dyck(vocab, L, rng) for _ in range(N)]
         d1_bodies = [_strip_pad(s) for s in d1]
         d1_full_len = sum(len(s) == L for s in d1)
         d1_valid = sum(is_valid_dyck1(b) for b in d1_bodies)
-        print("\ndyck (Dyck-1, len=1024):")
+        print(f"\ndyck (Dyck-1, vocab={len(vocab)}, len={L}):")
         print(f"  exact length == L              : {d1_full_len}/{N}")
         print(f"  valid Dyck-1 (balanced)        : {d1_valid}/{N}")
         print(f"  unigram cross-entropy (nats)   : {empirical_unigram_entropy(d1):.4f}")
@@ -548,16 +549,18 @@ def main():
         report_simple_patterns(get_vocab(256), L, n_samples=200, seed=0)
 
         # nca
-        nca_vocab = get_vocab(256)
+        vocab = get_vocab(
+            11
+        )  # enough for the state tokens + open/close + pad; the generator ignores the excess vocab
         n_nca = 100
-        d_state = min(nca_mod._D_STATE, len(nca_vocab) - nca_mod._N_RESERVED)
+        d_state = min(nca_mod._D_STATE, len(vocab) - nca_mod._N_RESERVED)
         frame_size = nca_mod._GRID_SIZE**2 + 2
         pad_tok = PAD_ID
-        open_tok = nca_vocab[nca_mod._OPEN_IDX]
-        close_tok = nca_vocab[nca_mod._CLOSE_IDX]
-        state_ids = nca_vocab[nca_mod._N_RESERVED : nca_mod._N_RESERVED + d_state]
+        open_tok = vocab[nca_mod._OPEN_IDX]
+        close_tok = vocab[nca_mod._CLOSE_IDX]
+        state_ids = vocab[nca_mod._N_RESERVED : nca_mod._N_RESERVED + d_state]
 
-        nca_samples = [gen_nca(nca_vocab, L, rng) for _ in range(n_nca)]
+        nca_samples = [gen_nca(vocab, L, rng) for _ in range(n_nca)]
         bad_frames = Counter()
         tail_total = tail_nonpad = 0
         for s in nca_samples:
