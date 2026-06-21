@@ -1,52 +1,108 @@
-shuffle_dyck (nested Dyck-k, k=3, vocab=7, len=4096):
-  exact length == L              : 10000/10000
-  valid shuffle-Dyck (balanced)  : 10000/10000
-  valid NESTED Dyck-k (stack)    : 10000/10000
-  unigram cross-entropy (nats)   : 1.7918
-  ORACLE achievable loss (nats)  : 1.0688
-  ln(6) uniform baseline         : 1.7918
 
-dyck (Dyck-1, vocab=3, len=4096):
-  exact length == L              : 10000/10000
-  valid Dyck-1 (balanced)        : 10000/10000
-  unigram cross-entropy (nats)   : 0.6931
-  ORACLE achievable loss (nats)  : 0.6759
-  ln(2) uniform baseline         : 0.6931
+================================================================================
+  PRIMARY METRICS — Intrinsic Learnability
+================================================================================
 
-simple patterns (vocab=256, len=4096, n=200/pattern):
-  uniform baseline ln(V) = 5.5452 nats   (an unstructured iid sequence is irreducible at this value)
+  Lower Oracle Loss -> more predictable.  Higher Improvement -> stronger signal.
 
-  pattern                 pad%   floor  unigram  gzip  floor/lnV
-  --------------------------------------------------------------
-  periodic                  0%  0.0055   5.3322  0.01      0.001
-  palindrome                0%  2.7726   5.5410  1.01      0.500
-  copy                      0%  2.3475   5.5415  0.44      0.423
-  reverse                   0%  2.7733   5.5419  1.01      0.500
-  counting_anbn             0%  0.1666   5.1809  0.08      0.030
-  counting_anbncn           0%  0.1134   5.3051  0.08      0.020
-  nested                    0%  2.7726   5.5410  1.01      0.500
-  interleaving              0%  0.0027   5.1394  0.01      0.000
-  permutation_cycle         0%  0.0047   5.2989  0.01      0.001
-  hierarchical              0%  0.0041   5.2443  0.01      0.001
-  noisy_palindrome*         0%  3.2759   5.5410  1.01      0.591
-  random                    0%  5.5452   5.5411  1.01      1.000
-  identity                  0%  0.0014   4.7662  0.01      0.000
-  composite_mirror_repeat    0%  1.3863   5.5407  0.52      0.250
-  mixer*                    0%  1.2988   5.5367  0.47      0.234  <- PAD INSIDE BODY!
+  Pattern                      Oracle Loss    Random    Gzip   Improvement
+                              (best possible) (uniform)   Ratio (Random÷Oracle)
+  ──────────────────────────────────────────────────────────────────────
+  shuffle_dyck (k=3)                1.0688    1.7918    0.34        1.68 ×
+  dyck-1                            0.6759    0.6931    0.18        1.03 ×
+  periodic                          0.0055    5.5452    0.01     1013.86 ×
+  palindrome                        2.7726    5.5452    1.01        2.00 ×
+  copy                              2.3475    5.5452    0.44        2.36 ×
+  reverse                           2.7733    5.5452    1.01        2.00 ×
+  counting_anbn                     0.1666    5.5452    0.08       33.28 ×
+  counting_anbncn                   0.1134    5.5452    0.08       48.92 ×
+  nested                            2.7726    5.5452    1.01        2.00 ×
+  interleaving                      0.0027    5.5452    0.01     2048.00 ×
+  permutation_cycle                 0.0047    5.5452    0.01     1175.32 ×
+  hierarchical                      0.0041    5.5452    0.01     1365.00 ×
+  noisy_palindrome †                3.2759    5.5452    1.01        1.69 ×
+  random                            5.5452    5.5452    1.01        1.00 ×
+  identity                          0.0014    5.5452    0.01     4096.00 ×
+  composite_mirror_repeat           1.3863    5.5452    0.52        4.00 ×
+  mixer † ⚠                         1.2988    5.5452    0.47        4.27 ×
+  nca (learnable_50)                1.0052    2.0794    0.30        2.07 ×
 
-  Legend:
-    pad%      : fraction of tokens that are the reserved masked pad (ID 0; excluded from the loss)
-    floor     : min achievable mean loss over UNMASKED tokens (the true training floor)
-    unigram   : naive global-unigram cross-entropy (memorization baseline)
-    gzip      : mean gzip compression ratio (README complexity metric)
-    floor/lnV : floor as a fraction of the uniform baseline (0 = fully predictable, 1 = unstructured)
-    *         : floor is a LOOSE lower bound (true floor is higher); counting_* use a dedicated EXACT oracle
+  Oracle Loss    Best possible cross-entropy — a perfect model that learned the rule.
+  Random         Cross-entropy of a uniform random guesser = ln(vocab size).
+  Gzip Ratio     gzip compressed size ÷ raw size.  Lower = more structured / redundant.
+  Improvement    Random ÷ Oracle.  How many times better than random guessing.
+                 Values near 1.0 -> little or no learnable signal in the data.
+  🔮             Oracle value is a LOOSE lower bound; true floor is higher.
+  ⚠️             See Diagnostic Checks section below.
 
-nca (grid=8, d_state=8, regime='learnable_50', temp=0.2, bias=0.0, len=4096):
-  malformed frames (open/close/cell) : 0/0/0
-  pad-tail tokens (non-pad = bad)    : 400 total, 0 non-pad
-  regime ladder (oracle cell loss vs uniform baseline):
-    unlearnable   temp=1.0  bias=0.0  H=2.0536   98.8% of ln(d)  [NO signal]
-    learnable_50  temp=0.2  bias=0.0  H=1.0052   48.3% of ln(d)  [learnable] <- active
-    learnable_25  temp=0.5  bias=2.0  H=0.5221   25.1% of ln(d)  [learnable]
-    easy          temp=0.1  bias=0.0  H=0.0761    3.7% of ln(d)  [learnable]
+────────────────────────────────────────────────────────────────────────────────
+  DIAGNOSTIC CHECKS
+────────────────────────────────────────────────────────────────────────────────
+
+  🔹 Structural Validity
+  Pattern                     Check                                    Result
+  ───────────────────────────────────────────────────────────────────────────
+  shuffle_dyck (k=3)          exact length == L                  10000/10000 ✅
+  shuffle_dyck (k=3)          valid shuffle-Dyck (balanced)      10000/10000 ✅
+  shuffle_dyck (k=3)          valid NESTED Dyck-k (stack-matched) 10000/10000 ✅
+  dyck-1                      exact length == L                  10000/10000 ✅
+  dyck-1                      valid Dyck-1 (balanced)            10000/10000 ✅
+  nca                         frame open/close/cell malformed       0 issues ✅
+
+  🔹 Pad Token Sanity  (pad ID 0 should only appear as a trailing suffix)
+  Pattern                     Pad Fraction       Status
+  ─────────────────────────────────────────────────────
+  shuffle_dyck (k=3)                 0%             ✅ OK
+  dyck-1                             0%             ✅ OK
+  periodic                           0%             ✅ OK
+  palindrome                         0%             ✅ OK
+  copy                               0%             ✅ OK
+  reverse                            0%             ✅ OK
+  counting_anbn                      0%             ✅ OK
+  counting_anbncn                    0%             ✅ OK
+  nested                             0%             ✅ OK
+  interleaving                       0%             ✅ OK
+  permutation_cycle                  0%             ✅ OK
+  hierarchical                       0%             ✅ OK
+  noisy_palindrome                   0%             ✅ OK
+  random                             0%             ✅ OK
+  identity                           0%             ✅ OK
+  composite_mirror_repeat            0%             ✅ OK
+  mixer                              0%     ⚠ PAD IN BODY
+  nca                              400 tail            ✅ OK
+
+  🔹 Empirical Unigram Loss  (naive token-frequency baseline for comparison)
+  Pattern                        Unigram     Oracle     Excess
+  ────────────────────────────────────────────────────────────
+  shuffle_dyck (k=3)              1.7918     1.0688     0.7230
+  dyck-1                          0.6931     0.6759     0.0173
+  periodic                        5.3322     0.0055     5.3267
+  palindrome                      5.5410     2.7726     2.7684
+  copy                            5.5415     2.3475     3.1940
+  reverse                         5.5419     2.7733     2.7686
+  counting_anbn                   5.1809     0.1666     5.0143
+  counting_anbncn                 5.3051     0.1134     5.1918
+  nested                          5.5410     2.7726     2.7684
+  interleaving                    5.1394     0.0027     5.1367
+  permutation_cycle               5.2989     0.0047     5.2942
+  hierarchical                    5.2443     0.0041     5.2402
+  noisy_palindrome                5.5410     3.2759     2.2651
+  random                          5.5411     5.5452    -0.0041
+  identity                        4.7662     0.0014     4.7648
+  composite_mirror_repeat         5.5407     1.3863     4.1544
+  mixer                           5.5367     1.2988     4.2378
+
+  🔹 NCA Regime Ladder  (cell oracle vs uniform baseline ln(d)=2.0794)
+  Regime            Temp   Bias     Oracle   % of ln(d)      Verdict
+  ─────────────────────────────────────────────────────────────────
+  unlearnable        1.0    0.0     2.0536        98.8%    NO signal
+  learnable_50       0.2    0.0     1.0052        48.3%  learnable ✅ ← active
+  learnable_25       0.5    2.0     0.5221        25.1%  learnable ✅
+  easy               0.1    0.0     0.0761         3.7%  learnable ✅
+
+  🔹 Notes on Oracle Loss Bounds
+    noisy_palindrome  — random corruptions credited as predictable when value
+                         coincidentally reappears; true floor is higher.
+    mixer             — whole-context concatenation of sub-patterns; ignores
+                         cross-segment uncertainty.
+    counting_anbn(*)  — EXACT oracle used (charges switch-point entropy).

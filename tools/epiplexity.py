@@ -626,6 +626,7 @@ def main() -> None:
     report = render_report(result, json_output=args.json)
 
     if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(report)
         print(f"Report written to {args.output}")
     else:

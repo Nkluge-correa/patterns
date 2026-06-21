@@ -1,0 +1,2 @@
+{"kwh": 0.389655, "loss": 5.54699, "stage_name": "palindrome", "status": "validation", "step": 200, "val_time_s": 16.535245}
+{"kwh": 3.857253, "loss": 5.541274, "stage_name": "palindrome", "status": "validation", "step": 2000, "val_time_s": 16.119788}

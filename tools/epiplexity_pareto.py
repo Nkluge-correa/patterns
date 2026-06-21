@@ -405,6 +405,7 @@ def main() -> None:
         output = render_pareto_report(points, hull, args.test_tokens)
 
     if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(output)
         print(f"Report written to {args.output}")
     else:

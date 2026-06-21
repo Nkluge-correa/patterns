@@ -1,0 +1,22 @@
+{
+  "run_name": "fineweb-edu-670m",
+  "model_params": 670000000,
+  "total_train_tokens": 5200000000,
+  "total_train_flops": 2.0904e+19,
+  "initial_train_loss_nats": 11.080292,
+  "final_train_loss_nats": 2.629057,
+  "final_val_loss_nats": 2.695436,
+  "S_nats_total": 2352404036.06,
+  "S_bits": 3393801636.9909444,
+  "S_bits_per_train_token": 0.6526541609597969,
+  "H_bits_per_test_token": 3.888692150233584,
+  "total_info_bits_per_token": 4.541346311193381,
+  "structural_fraction": 0.14371380560675442,
+  "gzip_complexity": 0.3766,
+  "oracle_loss_nats": null,
+  "language_entropy_nats": 1.8,
+  "approximation_used": false,
+  "warnings": [
+    "17 steps have loss BELOW final training loss (2.6291); the model may still be improving."
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "run_name": "palindrome",
+  "model_params": 670000000,
+  "total_train_tokens": 1000000000,
+  "total_train_flops": 4.02e+18,
+  "initial_train_loss_nats": 5.842202,
+  "final_train_loss_nats": 5.541263,
+  "final_val_loss_nats": 5.541274,
+  "S_nats_total": 2573376.7500001756,
+  "S_bits": 3712597.875564211,
+  "S_bits_per_train_token": 0.0037125978755642107,
+  "H_bits_per_test_token": 7.994368520006949,
+  "total_info_bits_per_token": 7.9980811178825135,
+  "structural_fraction": 0.00046418607424015705,
+  "gzip_complexity": 1.000337,
+  "oracle_loss_nats": 2.7726,
+  "language_entropy_nats": null,
+  "approximation_used": false,
+  "warnings": [
+    "12 steps have loss BELOW final training loss (5.5413); the model may still be improving."
+  ]
+}
