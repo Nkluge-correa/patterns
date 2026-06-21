@@ -38,6 +38,7 @@ from generators.nca import gen_nca
 from registry import PATTERNS
 from utils import get_vocab
 
+# --------------------------------------------------------------------------- #
 # Patterns whose generic value-membership floor is only a LOOSE lower bound:
 #   noisy_palindrome -- random corruptions are credited as predictable when
 #                       their value coincidentally reappears, so the true
@@ -46,16 +47,19 @@ from utils import get_vocab
 #                       induction credit ignores cross-segment uncertainty.
 # NOTE: the counting_* patterns are handled by a dedicated EXACT oracle and
 # are not in this set.
+# --------------------------------------------------------------------------- #
 _LOOSE_FLOOR_PATTERNS = frozenset({"noisy_palindrome", "mixer"})
 
 # Match the production configuration set in generator.py.
 generators.dyck._SHARED_IDS = True
 nca_mod._SHARED_RULE = True
 
+# --------------------------------------------------------------------------- #
 # The "simple" structural / counting / baseline patterns whose generative law
 # is "either a fresh uniform draw or a deterministic copy of an earlier token".
 # (dyck / shuffle_dyck / nca carry per-position choice entropy and have their
 # own dedicated oracles above; they are intentionally excluded here.)
+# --------------------------------------------------------------------------- #
 SIMPLE_PATTERNS = [
     "periodic",
     "palindrome",
@@ -241,12 +245,13 @@ def oracle_entropy_dyck1(samples, L):
 # sub-segments hide switch-point entropy); both are flagged via
 # _LOOSE_FLOOR_PATTERNS. The counting_* patterns use their own exact oracle
 # (`oracle_entropy_counting`) that additionally charges the switch-point entropy.
-# --------------------------------------------------------------------------- #
+#
 # Huge collision-free symbol pool: range objects cost O(1) memory and support
 # rng.choice / rng.sample / len / indexing, so generators run unchanged. ID 0
 # (PAD_ID) is excluded so pad never collides with content. mixer materialises a
 # per-segment vocab (list comprehension), so it gets a smaller -- still large --
 # concrete list to keep memory and time bounded.
+# --------------------------------------------------------------------------- #
 _HUGE_VOCAB = range(1, 1 << 30)
 _MIXER_VOCAB = list(range(1, (1 << 18) + 1))
 
@@ -345,20 +350,14 @@ def _pad_only_in_tail(sample):
     return True
 
 
-def report_simple_patterns(vocab, L, n_samples, seed=0):
-    """Print the minimum-achievable-loss table for every simple pattern."""
+def collect_simple_pattern_data(vocab, L, n_samples, seed=0):
+    """Collect learnability metrics for every simple structural/counting/baseline pattern.
+
+    Returns a list of result dicts, one per pattern.
+    """
     V = len(vocab)
     lnV = math.log(V)
-    print(f"\nsimple patterns (vocab={V}, len={L}, n={n_samples}/pattern):")
-    print(
-        f"  uniform baseline ln(V) = {lnV:.4f} nats   "
-        f"(an unstructured iid sequence is irreducible at this value)\n"
-    )
-    header = (
-        f"  {'pattern':<22} {'pad%':>5} {'floor':>7} {'unigram':>8} {'gzip':>5} {'floor/lnV':>10}"
-    )
-    print(header)
-    print("  " + "-" * (len(header) - 2))
+    results = []
     for name in SIMPLE_PATTERNS:
         if name not in PATTERNS:
             continue
@@ -383,49 +382,187 @@ def report_simple_patterns(vocab, L, n_samples, seed=0):
             pad_ok = pad_ok and _pad_only_in_tail(sample)
             all_samples.append(sample)
         unigram = empirical_unigram_entropy(all_samples)
-        # Floor: `random` is iid uniform (exact ln(V)); counting_* use the
-        # dedicated exact oracle that charges switch-point entropy; everything
-        # else uses the collision-free free-draw floor (exact for the
-        # deterministic patterns, a loose lower bound for the flagged ones).
+        # Oracle (floor): `random` is iid uniform (exact ln(V)); counting_* use
+        # the dedicated exact oracle that charges switch-point entropy;
+        # everything else uses the collision-free free-draw floor (exact for
+        # the deterministic patterns, a loose lower bound for the flagged ones).
         if name == "random":
-            floor = lnV
-            note = ""
+            oracle = lnV
+            loose = False
         elif name == "counting_anbn":
-            floor = oracle_entropy_counting(all_samples, L, k=2, vocab_size=V)
-            note = ""
+            oracle = oracle_entropy_counting(all_samples, L, k=2, vocab_size=V)
+            loose = False
         elif name == "counting_anbncn":
-            floor = oracle_entropy_counting(all_samples, L, k=3, vocab_size=V)
-            note = ""
+            oracle = oracle_entropy_counting(all_samples, L, k=3, vocab_size=V)
+            loose = False
         else:
-            floor = free_draw_floor(name, fn, L, n_samples, V, seed=seed)
-            note = "*" if name in _LOOSE_FLOOR_PATTERNS else ""
-        pad_flag = "" if pad_ok else "  <- PAD INSIDE BODY!"
-        print(
-            f"  {name + note:<22} {100 * _mean(pad_fracs):>4.0f}% "
-            f"{floor:>7.4f} "
-            f"{unigram:>8.4f} {_mean(gzips):>5.2f} "
-            f"{floor / lnV:>10.3f}{pad_flag}"
+            oracle = free_draw_floor(name, fn, L, n_samples, V, seed=seed)
+            loose = name in _LOOSE_FLOOR_PATTERNS
+        results.append(
+            {
+                "name": name,
+                "family": "structural",
+                "oracle_loss": oracle,
+                "random_baseline": lnV,
+                "gzip_ratio": _mean(gzips),
+                "unigram": unigram,
+                "pad_frac": _mean(pad_fracs),
+                "pad_ok": pad_ok,
+                "loose_bound": loose,
+                "warnings": (["PAD_INSIDE_BODY"] if not pad_ok else []),
+                "valid_label": None,
+                "valid_count": None,
+                "total_count": None,
+            }
         )
-    print("\n  Legend:")
-    print(
-        "    pad%      : fraction of tokens that are the reserved masked pad "
-        "(ID 0; excluded from the loss)"
-    )
-    print("    floor     : min achievable mean loss over UNMASKED tokens (the true training floor)")
-    print("    unigram   : naive global-unigram cross-entropy (memorization baseline)")
-    print("    gzip      : mean gzip compression ratio (README complexity metric)")
-    print(
-        "    floor/lnV : floor as a fraction of the uniform baseline "
-        "(0 = fully predictable, 1 = unstructured)"
-    )
-    print(
-        "    *         : floor is a LOOSE lower bound (true floor is higher); "
-        "counting_* use a dedicated EXACT oracle"
-    )
+    return results
 
 
 def _mean(xs):
     return sum(xs) / len(xs) if xs else 0.0
+
+
+# Output formatting
+def _print_primary_table(rows):
+    """Print a unified table of the most important learnability metrics.
+
+    All losses are cross-entropy in nats (natural log units).
+    Lower values = less uncertainty.  Pad tokens excluded from all metrics.
+    """
+    sep = "=" * 80
+    print(f"\n{sep}")
+    print("  PRIMARY METRICS — Intrinsic Learnability")
+    print(sep)
+    print()
+    print("  Lower Oracle Loss -> more predictable.  Higher Improvement -> stronger signal.")
+    print()
+    hdr = f"  {'Pattern':<27} {'Oracle Loss':>12} {'Random':>9} {'Gzip':>7} {'Improvement':>13}"
+    sub = f"  {'':27} {'(best possible)':>12} {'(uniform)':>9} {'Ratio':>7} {'(Random÷Oracle)':>13}"
+    print(hdr)
+    print(sub)
+    print("  " + "─" * 70)
+    for r in rows:
+        name = r["name"]
+        flags = ""
+        if r.get("loose_bound"):
+            flags += " †"
+        if r.get("warnings"):
+            flags += " ⚠"
+        oracle = r["oracle_loss"]
+        rand = r["random_baseline"]
+        gz = r.get("gzip_ratio")
+        impr = rand / oracle if oracle > 0 else float("inf")
+        gz_str = f"{gz:>7.2f}" if gz is not None else "     —"
+        print(f"  {name + flags:<27} {oracle:>12.4f} {rand:>9.4f} {gz_str} {impr:>11.2f} ×")
+    print()
+    print("  Oracle Loss    Best possible cross-entropy — a perfect model that learned the rule.")
+    print("  Random         Cross-entropy of a uniform random guesser = ln(vocab size).")
+    print("  Gzip Ratio     gzip compressed size ÷ raw size.  Lower = more structured / redundant.")
+    print("  Improvement    Random ÷ Oracle.  How many times better than random guessing.")
+    print("                 Values near 1.0 -> little or no learnable signal in the data.")
+    print("  🔮             Oracle value is a LOOSE lower bound; true floor is higher.")
+    print("  ⚠️             See Diagnostic Checks section below.")
+
+
+def _print_diagnostics(dyck_rows, simple_rows, nca_blob):
+    """Print all diagnostic / sanity-check information in a clearly separated section."""
+    sep = "─" * 80
+    print(f"\n{sep}")
+    print("  DIAGNOSTIC CHECKS")
+    print(sep)
+
+    # Structural validity
+    print("\n  🔹 Structural Validity")
+    print(f"  {'Pattern':<27} {'Check':<34} {'Result':>12}")
+    print("  " + "─" * 75)
+    for r in dyck_rows:
+        for check in r.get("validity_checks", []):
+            ok = check["ok"]
+            mark = " ✅" if ok else " ❌ FAIL"
+            print(
+                f"  {r['name']:<27} {check['label']:<34} "
+                f"{check['count']:>4}/{check['total']:<4}{mark}"
+            )
+    for r in simple_rows:
+        if r.get("valid_label") and r.get("total_count"):
+            ok = r["valid_count"] == r["total_count"]
+            mark = " ✅" if ok else " ❌ FAIL"
+            print(
+                f"  {r['name']:<27} {r['valid_label']:<34} "
+                f"{r['valid_count']:>4}/{r['total_count']:<4}{mark}"
+            )
+    if nca_blob:
+        bo, bc, bcell = nca_blob["bad_open"], nca_blob["bad_close"], nca_blob["bad_cell"]
+        n_bad = bo + bc + bcell
+        ok = n_bad == 0
+        mark = " ✅" if ok else " ❌ FAIL"
+        print(f"  {'nca':<27} {'frame open/close/cell malformed':<34} {n_bad:>4} issues{mark}")
+
+    # Pad token sanity
+    print("\n  🔹 Pad Token Sanity  (pad ID 0 should only appear as a trailing suffix)")
+    print(f"  {'Pattern':<27} {'Pad Fraction':>12} {'Status':>12}")
+    print("  " + "─" * 53)
+    for r in dyck_rows:
+        pf = r.get("pad_frac")
+        if pf is not None:
+            ok = r.get("pad_ok", True)
+            print(
+                f"  {r['name']:<27} {pf * 100:>8.0f}%     {'✅ OK' if ok else '⚠ PAD IN BODY':>12}"
+            )
+    for r in simple_rows:
+        pf = r.get("pad_frac")
+        if pf is not None:
+            ok = r.get("pad_ok", True)
+            print(
+                f"  {r['name']:<27} {pf * 100:>8.0f}%     {'✅ OK' if ok else '⚠ PAD IN BODY':>12}"
+            )
+    if nca_blob:
+        total_tail = nca_blob["tail_total"]
+        nonpad = nca_blob["tail_nonpad"]
+        ok = nonpad == 0
+        print(f"  {'nca':<27} {total_tail:>8} tail    {'✅ OK' if ok else '⚠ NON-PAD IN TAIL':>12}")
+
+    # Empirical unigram comparison
+    print("\n  🔹 Empirical Unigram Loss  (naive token-frequency baseline for comparison)")
+    print(f"  {'Pattern':<27} {'Unigram':>10} {'Oracle':>10} {'Excess':>10}")
+    print("  " + "─" * 60)
+    for r in dyck_rows:
+        if r.get("unigram") is not None:
+            excess = r["unigram"] - r["oracle_loss"]
+            print(
+                f"  {r['name']:<27} {r['unigram']:>10.4f} {r['oracle_loss']:>10.4f} {excess:>10.4f}"
+            )
+    for r in simple_rows:
+        if r.get("unigram") is not None:
+            excess = r["unigram"] - r["oracle_loss"]
+            print(
+                f"  {r['name']:<27} {r['unigram']:>10.4f} {r['oracle_loss']:>10.4f} {excess:>10.4f}"
+            )
+
+    # NCA regime ladder
+    if nca_blob and nca_blob.get("regimes"):
+        print(
+            f"\n  🔹 NCA Regime Ladder  (cell oracle vs uniform baseline ln(d)={nca_blob['ln_d']:.4f})"
+        )
+        print(
+            f"  {'Regime':<15} {'Temp':>6} {'Bias':>6} {'Oracle':>10} {'% of ln(d)':>12} {'Verdict':>12}"
+        )
+        print("  " + "─" * 65)
+        for reg in nca_blob["regimes"]:
+            verdict = "NO signal" if reg["pct"] > 90 else "learnable ✅"
+            active = " ← active" if reg["active"] else ""
+            print(
+                f"  {reg['name']:<15} {reg['temp']:>6.1f} {reg['bias']:>6.1f} "
+                f"{reg['oracle']:>10.4f} {reg['pct']:>11.1f}% {verdict:>12}{active}"
+            )
+
+    # Loose-bound notes
+    print("\n  🔹 Notes on Oracle Loss Bounds")
+    print("    noisy_palindrome  — random corruptions credited as predictable when value")
+    print("                         coincidentally reappears; true floor is higher.")
+    print("    mixer             — whole-context concatenation of sub-patterns; ignores")
+    print("                         cross-segment uncertainty.")
+    print("    counting_anbn(*)  — EXACT oracle used (charges switch-point entropy).")
 
 
 # NCA validators
@@ -515,43 +652,91 @@ def main():
         L = 4096
         N = 10000
 
-        # shuffle_dyck
-        vocab = get_vocab(7)  # Enough for k=3 types + pad; the generators ignore the excess vocab.
+        # ── shuffle_dyck ─────────────────────────────────────────────
+        vocab = get_vocab(7)
         sd = [gen_shuffle_dyck(vocab, L, rng) for _ in range(N)]
         sd_bodies = [_strip_pad(s) for s in sd]
-        sd_full_len = sum(len(s) == L for s in sd)
-        sd_balanced = sum(is_valid_shuffle_dyck(b) for b in sd_bodies)
-        sd_nested = sum(is_valid_nested_dyck(b) for b in sd_bodies)
-        print(f"shuffle_dyck (nested Dyck-k, k=3, vocab={len(vocab)}, len={L}):")
-        print(f"  exact length == L              : {sd_full_len}/{N}")
-        print(f"  valid shuffle-Dyck (balanced)  : {sd_balanced}/{N}")
-        print(f"  valid NESTED Dyck-k (stack)    : {sd_nested}/{N}")
-        print(f"  unigram cross-entropy (nats)   : {empirical_unigram_entropy(sd):.4f}")
-        print(f"  ORACLE achievable loss (nats)  : {oracle_entropy_shuffle(sd, L):.4f}")
-        print(f"  ln(6) uniform baseline         : {math.log(6):.4f}")
+        sd_oracle = oracle_entropy_shuffle(sd, L)
+        sd_gzip = _mean([gzip_complexity(s) for s in sd])
+        sd_pad_ok = all(_pad_only_in_tail(s) for s in sd)
 
-        # dyck-1
-        vocab = get_vocab(3)  # just open, close, pad; the generators ignore the excess vocab
+        dyck_rows = [
+            {
+                "name": "shuffle_dyck (k=3)",
+                "family": "dyck",
+                "oracle_loss": sd_oracle,
+                "random_baseline": math.log(6),
+                "gzip_ratio": sd_gzip,
+                "unigram": empirical_unigram_entropy(sd),
+                "pad_frac": _mean([_pad_fraction(s) for s in sd]),
+                "pad_ok": sd_pad_ok,
+                "loose_bound": False,
+                "warnings": [],
+                "validity_checks": [
+                    {
+                        "label": "exact length == L",
+                        "count": sum(len(s) == L for s in sd),
+                        "total": N,
+                        "ok": all(len(s) == L for s in sd),
+                    },
+                    {
+                        "label": "valid shuffle-Dyck (balanced)",
+                        "count": sum(is_valid_shuffle_dyck(b) for b in sd_bodies),
+                        "total": N,
+                        "ok": all(is_valid_shuffle_dyck(b) for b in sd_bodies),
+                    },
+                    {
+                        "label": "valid NESTED Dyck-k (stack-matched)",
+                        "count": sum(is_valid_nested_dyck(b) for b in sd_bodies),
+                        "total": N,
+                        "ok": all(is_valid_nested_dyck(b) for b in sd_bodies),
+                    },
+                ],
+            }
+        ]
+
+        # ── dyck-1 ───────────────────────────────────────────────────
+        vocab = get_vocab(3)
         d1 = [gen_dyck(vocab, L, rng) for _ in range(N)]
         d1_bodies = [_strip_pad(s) for s in d1]
-        d1_full_len = sum(len(s) == L for s in d1)
-        d1_valid = sum(is_valid_dyck1(b) for b in d1_bodies)
-        print(f"\ndyck (Dyck-1, vocab={len(vocab)}, len={L}):")
-        print(f"  exact length == L              : {d1_full_len}/{N}")
-        print(f"  valid Dyck-1 (balanced)        : {d1_valid}/{N}")
-        print(f"  unigram cross-entropy (nats)   : {empirical_unigram_entropy(d1):.4f}")
-        print(f"  ORACLE achievable loss (nats)  : {oracle_entropy_dyck1(d1, L):.4f}")
-        print(f"  ln(2) uniform baseline         : {math.log(2):.4f}")
+        d1_oracle = oracle_entropy_dyck1(d1, L)
+        d1_gzip = _mean([gzip_complexity(s) for s in d1])
+        d1_pad_ok = all(_pad_only_in_tail(s) for s in d1)
 
-        # simple structural / counting / baseline patterns
-        # These are composed the production way (random background + repeated
-        # instance) using the production vocab of 256.
-        report_simple_patterns(get_vocab(256), L, n_samples=200, seed=0)
+        dyck_rows.append(
+            {
+                "name": "dyck-1",
+                "family": "dyck",
+                "oracle_loss": d1_oracle,
+                "random_baseline": math.log(2),
+                "gzip_ratio": d1_gzip,
+                "unigram": empirical_unigram_entropy(d1),
+                "pad_frac": _mean([_pad_fraction(s) for s in d1]),
+                "pad_ok": d1_pad_ok,
+                "loose_bound": False,
+                "warnings": [],
+                "validity_checks": [
+                    {
+                        "label": "exact length == L",
+                        "count": sum(len(s) == L for s in d1),
+                        "total": N,
+                        "ok": all(len(s) == L for s in d1),
+                    },
+                    {
+                        "label": "valid Dyck-1 (balanced)",
+                        "count": sum(is_valid_dyck1(b) for b in d1_bodies),
+                        "total": N,
+                        "ok": all(is_valid_dyck1(b) for b in d1_bodies),
+                    },
+                ],
+            }
+        )
 
-        # nca
-        vocab = get_vocab(
-            11
-        )  # enough for the state tokens + open/close + pad; the generator ignores the excess vocab
+        # ── Simple structural / counting / baseline patterns ─────────
+        simple_rows = collect_simple_pattern_data(get_vocab(256), L, n_samples=200, seed=0)
+
+        # ── NCA ──────────────────────────────────────────────────────
+        vocab = get_vocab(11)
         n_nca = 100
         d_state = min(nca_mod._D_STATE, len(vocab) - nca_mod._N_RESERVED)
         frame_size = nca_mod._GRID_SIZE**2 + 2
@@ -568,33 +753,57 @@ def main():
             bad_frames.update(issues)
             tail_total += len(tail)
             tail_nonpad += sum(t != pad_tok for t in tail)
+        nca_gzip = _mean([gzip_complexity(s) for s in nca_samples])
 
-        print(
-            f"\nnca (grid={nca_mod._GRID_SIZE}, d_state={d_state}, "
-            f"regime='{nca_mod._REGIME}', temp={nca_mod._TEMPERATURE}, "
-            f"bias={nca_mod._IDENTITY_BIAS}, len={L}):"
-        )
-        print(
-            f"  malformed frames (open/close/cell) : "
-            f"{bad_frames['bad_open']}/{bad_frames['bad_close']}/"
-            f"{bad_frames['bad_cell']}"
-        )
-        print(f"  pad-tail tokens (non-pad = bad)    : {tail_total} total, {tail_nonpad} non-pad")
-
-        # Regime ladder: oracle achievable cell loss vs uniform baseline ln(d_state).
-        print("  regime ladder (oracle cell loss vs uniform baseline):")
+        # Regime ladder
         saved = (nca_mod._TEMPERATURE, nca_mod._IDENTITY_BIAS)
+        regimes = []
         for name, (temp, bias) in nca_mod._REGIMES.items():
             nca_mod._TEMPERATURE, nca_mod._IDENTITY_BIAS = temp, bias
             H_cell, ln_d = nca_oracle_entropy()
-            tag = "NO signal" if H_cell / ln_d > 0.9 else "learnable"
-            marker = " <- active" if name == nca_mod._REGIME else ""
-            print(
-                f"    {name:<13} temp={temp:<4} bias={bias:<4} "
-                f"H={H_cell:.4f}  {H_cell / ln_d * 100:5.1f}% of ln(d)  "
-                f"[{tag}]{marker}"
+            regimes.append(
+                {
+                    "name": name,
+                    "temp": temp,
+                    "bias": bias,
+                    "oracle": H_cell,
+                    "pct": H_cell / ln_d * 100,
+                    "active": name == nca_mod._REGIME,
+                }
             )
         nca_mod._TEMPERATURE, nca_mod._IDENTITY_BIAS = saved
+
+        # Active regime values for the primary table
+        active_reg = next(r for r in regimes if r["active"])
+        ln_d = math.log(nca_mod._D_STATE)
+
+        nca_blob = {
+            "bad_open": bad_frames["bad_open"],
+            "bad_close": bad_frames["bad_close"],
+            "bad_cell": bad_frames["bad_cell"],
+            "tail_total": tail_total,
+            "tail_nonpad": tail_nonpad,
+            "ln_d": ln_d,
+            "regimes": regimes,
+        }
+
+        nca_row = {
+            "name": f"nca ({nca_mod._REGIME})",
+            "family": "nca",
+            "oracle_loss": active_reg["oracle"],
+            "random_baseline": ln_d,
+            "gzip_ratio": nca_gzip,
+            "unigram": None,
+            "pad_frac": None,
+            "pad_ok": True,
+            "loose_bound": False,
+            "warnings": [],
+        }
+
+        # ── Print unified report ─────────────────────────────────────
+        all_primary = dyck_rows + simple_rows + [nca_row]
+        _print_primary_table(all_primary)
+        _print_diagnostics(dyck_rows, simple_rows, nca_blob)
 
         # Restore stdout (log file auto-closed by context manager).
         sys.stdout = _old_stdout
