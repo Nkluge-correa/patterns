@@ -427,9 +427,11 @@ def render_report(result: EpiplexityResult, json_output: bool = False) -> str:
         L.append("")
         L.append(
             "* **Gzip complexity** (compressed / original bytes) — approximates total "
-            "Kolmogorov complexity. Unlike epiplexity, it cannot separate random noise from "
-            "learnable structure: both incompressible noise and richly structured data score "
-            "near 1.0."
+            "Kolmogorov complexity.  Used together with epiplexity to disambiguate the "
+            "high-structural-fraction region: trivially compressible patterns (gzip ≈ 0, "
+            "like periodic sequences) score high on structural fraction but contain no "
+            "transferable structure; genuinely rich data (natural language, chess) has "
+            "both high structural fraction AND moderate-to-high gzip complexity."
         )
         L.append(
             "* **Oracle next-token loss** — the irreducible entropy of the generating "
@@ -438,31 +440,149 @@ def render_report(result: EpiplexityResult, json_output: bool = False) -> str:
         L.append("")
 
     # Interpretation
+    #
+    # Describes where the data sits in the S_T × H_T landscape,
+    # optionally augmented by gzip complexity:
+    #
+    #                     High S_T (complex, structured)
+    #                            /\
+    #                           /  \
+    #                          /    \
+    #                         /      \
+    #                        /        \
+    #                       /          \
+    #     Low S_T, Low H_T /            \ High S_T, High H_T
+    #     (trivial,       /              \ (natural language,
+    #      predictable)  /                \  chess, NCA)
+    #                   /__________________\
+    #     Low S_T, High H_T
+    #     (CSPRNG, uniform noise,
+    #      Rule 30 ECA)
+    #
     L.append("## Interpretation")
     L.append("")
     sf = result.structural_fraction
-    if sf < 0.01:
-        L.append(
-            "**Near-zero structural fraction** — the data contains almost no "
-            "learnable structure.  Characteristic of random or trivially "
-            "predictable data."
-        )
-    elif sf < 0.05:
-        L.append(
-            "**Low structural fraction** — only a modest amount of reusable "
-            "structure was extracted.  Pre-pretraining transfer may be limited."
-        )
-    elif sf < 0.15:
-        L.append(
-            "**Moderate structural fraction** — the data contains meaningful "
-            "learnable structure.  The model likely built non-trivial internal "
-            "circuits that *may* transfer to downstream tasks."
-        )
+    gz = result.gzip_complexity
+    st_bits = result.S_bits_per_train_token
+    ht_bits = result.H_bits_per_test_token
+
+    if gz is not None:
+        # Two-axis: structural fraction × gzip complexity
+
+        if gz < 0.05:
+            L.append(
+                f"**Trivially compressible** (gzip {gz:.4f}) — near-zero "
+                "Kolmogorov complexity.  The data is almost completely "
+                "compressible; any extracted structure comes from a pattern "
+                "simple enough for a lookup table."
+            )
+        elif gz < 0.15:
+            L.append(f"**Low gzip complexity** ({gz:.4f}) — the data is highly compressible.")
+            if sf < 0.05:
+                L.append(
+                    f"Structural fraction is low ({sf:.2%}) — the model "
+                    "extracted very little learnable structure (S_T = "
+                    f"{st_bits:.4f} bits/token, H_T = {ht_bits:.4f} bits/token).  "
+                    "Consistent with a simple deterministic pattern the "
+                    "model barely engaged with."
+                )
+            elif sf < 0.15:
+                L.append(
+                    f"Structural fraction is moderate ({sf:.2%}) — the model "
+                    f"extracted some learnable structure (S_T = {st_bits:.4f} "
+                    f"bits/token, H_T = {ht_bits:.4f} bits/token) from compressible "
+                    "data."
+                )
+            else:
+                L.append(
+                    f"Structural fraction is high ({sf:.2%}) — the model "
+                    "extracted substantial learnable structure (S_T = "
+                    f"{st_bits:.4f} bits/token, H_T = {ht_bits:.4f} bits/token), but "
+                    "the low gzip value indicates the underlying pattern "
+                    "is simple."
+                )
+        elif gz < 0.50:
+            L.append(
+                f"**Moderate gzip complexity** ({gz:.4f}) — the data has a "
+                "mix of compressible and incompressible content."
+            )
+            if sf < 0.05:
+                L.append(
+                    f"Structural fraction is low ({sf:.2%}) — little "
+                    f"learnable structure was extracted (S_T = {st_bits:.4f} "
+                    f"bits/token, H_T = {ht_bits:.4f} bits/token).  The data may "
+                    "be dominated by unstructured variation or the model "
+                    "may be under-trained."
+                )
+            elif sf < 0.15:
+                L.append(
+                    f"Structural fraction is moderate ({sf:.2%}) — the model "
+                    f"extracted non-trivial structure (S_T = {st_bits:.4f} "
+                    f"bits/token, H_T = {ht_bits:.4f} bits/token)."
+                )
+            else:
+                L.append(
+                    f"Structural fraction is high ({sf:.2%}) — substantial "
+                    f"learnable structure was extracted (S_T = {st_bits:.4f} "
+                    f"bits/token, H_T = {ht_bits:.4f} bits/token).  The data "
+                    "contains both incompressible content and rich "
+                    "structure."
+                )
+        else:  # gz >= 0.50
+            L.append(f"**High gzip complexity** ({gz:.4f}) — the data is largely incompressible.")
+            if sf < 0.05:
+                L.append(
+                    f"Structural fraction is near zero ({sf:.2%}) — almost no "
+                    f"learnable structure was extracted (S_T = {st_bits:.4f} "
+                    f"bits/token, H_T = {ht_bits:.4f} bits/token).  Consistent "
+                    "with cryptographic randomness, uniform noise, or "
+                    "shuffled data (low S_T, high H_T corner of the "
+                    "epiplexity landscape)."
+                )
+            elif sf < 0.15:
+                L.append(
+                    f"Structural fraction is low ({sf:.2%}) — a small amount "
+                    f"of learnable structure was extracted (S_T = {st_bits:.4f} "
+                    f"bits/token, H_T = {ht_bits:.4f} bits/token) from largely "
+                    "incompressible data.  The signal-to-noise ratio is "
+                    "poor."
+                )
+            else:
+                L.append(
+                    f"Structural fraction is high ({sf:.2%}) — substantial "
+                    f"learnable structure was extracted (S_T = {st_bits:.4f} "
+                    f"bits/token, H_T = {ht_bits:.4f} bits/token) from "
+                    "incompressible data."
+                )
     else:
-        L.append(
-            "**High structural fraction** — the data is rich in learnable "
-            "structure.  Strong candidate for pre-pretraining."
-        )
+        # Fallback: structural fraction only
+        if sf < 0.01:
+            L.append(
+                f"**Near-zero structural fraction** ({sf:.2%}) — the data "
+                f"contains almost no learnable structure (S_T = {st_bits:.4f} "
+                f"bits/token, H_T = {ht_bits:.4f} bits/token)."
+            )
+        elif sf < 0.05:
+            L.append(
+                f"**Low structural fraction** ({sf:.2%}) — a modest amount "
+                f"of learnable structure was extracted (S_T = {st_bits:.4f} "
+                f"bits/token, H_T = {ht_bits:.4f} bits/token)."
+            )
+        elif sf < 0.15:
+            L.append(
+                f"**Moderate structural fraction** ({sf:.2%}) — the data "
+                f"contains meaningful learnable structure (S_T = {st_bits:.4f} "
+                f"bits/token, H_T = {ht_bits:.4f} bits/token)."
+            )
+        else:
+            L.append(
+                f"**High structural fraction** ({sf:.2%}) — the model "
+                f"extracted substantial learnable structure (S_T = {st_bits:.4f} "
+                f"bits/token, H_T = {ht_bits:.4f} bits/token).  Note: without "
+                "gzip complexity, high structural fraction could indicate "
+                "either a genuinely rich pattern or a trivially "
+                "compressible deterministic sequence."
+            )
 
     if result.approximation_used:
         L.append(
