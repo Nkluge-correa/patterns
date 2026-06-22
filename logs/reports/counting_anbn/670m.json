@@ -1,0 +1,22 @@
+{
+  "run_name": "counting_anbn",
+  "model_params": 670000000,
+  "total_train_tokens": 1000000000,
+  "total_train_flops": 4.02e+18,
+  "initial_train_loss_nats": 5.754489,
+  "final_train_loss_nats": 0.366298,
+  "final_val_loss_nats": 0.365343,
+  "S_nats_total": 212257134.74999997,
+  "S_bits": 306222315.69712543,
+  "S_bits_per_train_token": 0.30622231569712544,
+  "H_bits_per_test_token": 0.5270785343234965,
+  "total_info_bits_per_token": 0.8333008500206219,
+  "structural_fraction": 0.36748110324086103,
+  "gzip_complexity": 0.089201,
+  "oracle_loss_nats": 0.1666,
+  "language_entropy_nats": null,
+  "approximation_used": false,
+  "warnings": [
+    "176 steps have loss BELOW final training loss (0.3663); the model may still be improving."
+  ]
+}
