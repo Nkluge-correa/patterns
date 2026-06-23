@@ -1,0 +1,22 @@
+{
+  "run_name": "permutation_cycle",
+  "model_params": 670000000,
+  "total_train_tokens": 1000000000,
+  "total_train_flops": 4.02e+18,
+  "initial_train_loss_nats": 5.798406,
+  "final_train_loss_nats": 0.008709,
+  "final_val_loss_nats": 0.009116,
+  "S_nats_total": 421261932.75,
+  "S_bits": 607752501.293725,
+  "S_bits_per_train_token": 0.6077525012937249,
+  "H_bits_per_test_token": 0.013151607992743793,
+  "total_info_bits_per_token": 0.6209041092864688,
+  "structural_fraction": 0.9788186166011086,
+  "gzip_complexity": 0.013192,
+  "oracle_loss_nats": 0.0047,
+  "language_entropy_nats": null,
+  "approximation_used": false,
+  "warnings": [
+    "129 steps have loss BELOW final training loss (0.0087); the model may still be improving."
+  ]
+}
