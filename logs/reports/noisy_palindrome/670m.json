@@ -1,0 +1,22 @@
+{
+  "run_name": "noisy_palindrome",
+  "model_params": 670000000,
+  "total_train_tokens": 1000000000,
+  "total_train_flops": 4.02e+18,
+  "initial_train_loss_nats": 5.849381,
+  "final_train_loss_nats": 5.541237,
+  "final_val_loss_nats": 5.541244,
+  "S_nats_total": 2570131.5000002473,
+  "S_bits": 3707915.96948287,
+  "S_bits_per_train_token": 0.0037079159694828694,
+  "H_bits_per_test_token": 7.994325239155724,
+  "total_info_bits_per_token": 7.998033155125206,
+  "structural_fraction": 0.0004636034757003734,
+  "gzip_complexity": 1.000337,
+  "oracle_loss_nats": 3.2759,
+  "language_entropy_nats": null,
+  "approximation_used": false,
+  "warnings": [
+    "22 steps have loss BELOW final training loss (5.5412); the model may still be improving."
+  ]
+}
