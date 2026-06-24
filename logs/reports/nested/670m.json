@@ -1,0 +1,22 @@
+{
+  "run_name": "nested",
+  "model_params": 670000000,
+  "total_train_tokens": 1000000000,
+  "total_train_flops": 4.02e+18,
+  "initial_train_loss_nats": 5.846722,
+  "final_train_loss_nats": 5.541272,
+  "final_val_loss_nats": 5.541274,
+  "S_nats_total": 2586030.9999998068,
+  "S_bits": 3730854.099284848,
+  "S_bits_per_train_token": 0.0037308540992848477,
+  "H_bits_per_test_token": 7.994368520006949,
+  "total_info_bits_per_token": 7.998099374106234,
+  "structural_fraction": 0.00046646758495692744,
+  "gzip_complexity": 1.000337,
+  "oracle_loss_nats": 2.7726,
+  "language_entropy_nats": null,
+  "approximation_used": false,
+  "warnings": [
+    "73 steps have loss BELOW final training loss (5.5413); the model may still be improving."
+  ]
+}

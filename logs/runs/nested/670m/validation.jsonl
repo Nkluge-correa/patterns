@@ -1,0 +1,2 @@
+{"kwh": 0.417143, "loss": 5.546845, "stage_name": "nested", "status": "validation", "step": 200, "val_time_s": 16.460636}
+{"kwh": 4.071103, "loss": 5.541274, "stage_name": "nested", "status": "validation", "step": 2000, "val_time_s": 16.039106}
