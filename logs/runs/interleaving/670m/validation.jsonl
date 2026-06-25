@@ -1,0 +1,2 @@
+{"kwh": 0.415739, "loss": 0.088558, "stage_name": "interleaving", "status": "validation", "step": 200, "val_time_s": 24.960467}
+{"kwh": 4.091556, "loss": 0.002656, "stage_name": "interleaving", "status": "validation", "step": 2000, "val_time_s": 17.407931}
