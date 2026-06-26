@@ -97,26 +97,30 @@ full vocab range for their patterns. To make things clear, here is a table of
 expected unique token counts per pattern with `--vocab-size 256` and
 `--max-context-length 4096`:
 
-| Pattern                 | Unique Tokens | Why                                                           |
-|-------------------------|---------------|---------------------------------------------------------------|
-| periodic                | 255           | Over-generates, truncates exactly                             |
-| palindrome              | 255           | Built to exact target length                                  |
-| copy                    | 256           | Requires padding                                              |
-| reverse                 | 256           | Requires padding                                              |
-| counting_anbn           | 255           | Even segment sizes,                                           |
-| counting_anbncn         | 256           | Requires padding (uneven segment sizes)                       |
-| nested                  | 255           | Built to exact target length                                  |
-| interleaving            | 255           | Over-generates, truncates exactly                             |
-| permutation_cycle       | 255           | Over-generates, truncates exactly                             |
-| hierarchical            | 256           | Requires padding (uneven segment sizes)                       |
-| noisy_palindrome        | 255           | Inherits palindrome's exact sizing                            |
-| nca                     | 11            | Manages own reserved IDs (pad/grid markers)                   |
-| dyck                    | 2             | Single bracket pair (even segment does not require padding)   |
-| shuffle_dyck            | 6             | k=3 bracket pairs (even segment sizes do not require padding) |
-| random                  | 255           | Exact length, no padding needed                               |
-| identity                | 255           | Exact length, no padding needed                               |
-| composite_mirror_repeat | 255           | Over-generates, truncates exactly                             |
-| mixer                   | 256           | Uses ID 0 as segment separator + tail pad                     |
+| Pattern                 | Unique Tokens | Actual Vocab Size |
+|-------------------------|---------------|-------------------|
+| periodic                | 255           | 256               |
+| palindrome              | 255           | 256               |
+| copy                    | 256           | 256               |
+| reverse                 | 256           | 256               |
+| counting_anbn           | 255           | 256               |
+| counting_anbncn         | 256           | 256               |
+| nested                  | 255           | 256               |
+| interleaving            | 255           | 256               |
+| permutation_cycle       | 255           | 256               |
+| hierarchical            | 256           | 256               |
+| noisy_palindrome        | 255           | 256               |
+| nca                     | 11            | 11                |
+| dyck                    | 2             | 3                 |
+| shuffle_dyck            | 6             | 7                 |
+| random                  | 255           | 256               |
+| identity                | 255           | 256               |
+| composite_mirror_repeat | 255           | 256               |
+| mixer                   | 256           | 256               |
+
+- All pattwerns that have a +1 mismatch between unique tokens and
+  actual vocab size are due to the reserved PAD_ID (0) being stripped
+  from the generator's vocabulary before sample generation.
 """
 
 import argparse
