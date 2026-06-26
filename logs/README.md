@@ -215,6 +215,56 @@ In terms of tokenization:
 
 ## Experiment log
 
+### 2026-06-15: Initial pre-pretraining sweep (~50M Llama) — (some) patterns are learnable, but none beat the FineWeb-Edu baseline
+
+**Context.** We reproduced the full pre-pretraining -> reset weights (- attention blocks) -> continual-pretraining pipeline on at the ~50M-parameter scale, sweeping it across all patterns we have previously defined.
+
+**Setup (held constant across all conditions).**
+
+- Model: ~50M-parameter Llama (hidden 512, 8 layers, 8 heads, ctx 4096), `config.json` per pattern with `vocab_size` matching the pattern's token range.
+- Text data: FineWeb-Edu, `sample/10BT` reduced to ~5B tokens, tokenized with `HuggingFaceTB/SmolLM2-135M`, packed to 4096-token blocks.
+- Budgets: pattern pre-pretraining ~1B tokens and FineWeb-Edu continual pretraining ~5.2B tokens. Same hyperparameters everywhere (`total_batch_size 131072`, `max_lr 0.002`, cosine decay, with the RNG seed set to 1337). All experiments ran on 2 A100.
+
+- **Procedure (per pattern).** generate (250k samples) -> pre-pretrain on the pattern (no tokenizer, `continual_pretraining=false`) -> reset non-attention weights (`utils/reset_weights.py`, keeps attention) -> continual-pretrain on FineWeb-Edu (`continual_pretraining=true`, tokenizer restored) -> log the final FineWeb-Edu validation loss and compare it to the baseline.
+
+**Results.** Final FineWeb-Edu validation loss per pattern, sorted from best to worst (lower = better).
+
+| Pattern                 | vocab | FineWeb-Edu val | beats baseline (3.3557)? |
+|-------------------------|-------|-----------------|--------------------------|
+| noisy_palindrome        | 256   | 3.4289          | no                       |
+| palindrome              | 256   | 3.4334          | no                       |
+| composite_mirror_repeat | 256   | 3.4471          | no                       |
+| nested                  | 256   | 3.4556          | no                       |
+| reverse                 | 256   | 3.4558          | no                       |
+| shuffle_dyck            | 6     | 3.4624          | no                       |
+| mixer                   | 256   | 3.4629          | no                       |
+| identity                | 256   | 3.4909          | no                       |
+| hierarchical            | 256   | 3.4948          | no                       |
+| counting_anbncn         | 256   | 3.5135          | no                       |
+| periodic                | 256   | 3.5194          | no                       |
+| copy                    | 256   | 3.5285          | no                       |
+| permutation_cycle       | 256   | 3.5360          | no                       |
+| interleaving            | 256   | 3.5385          | no                       |
+| counting_anbn           | 256   | 3.5453          | no                       |
+| random (control)        | 256   | 3.7912          | no                       |
+| dyck                    | 6     | 3.7953          | no                       |
+
+* **FineWeb-Edu only pretraining run yelded a `val_loss = 3.3557`.**
+
+
+**Findings.**
+
+* **No pattern beat the baseline** at the ~50M scale — every condition ended *above* 3.3557, i.e., pre-pretraining slightly *hurt* downstream loss.
+
+Below we show how much each pattern hurt the downstream loss, relative to the baseline (lower = better).
+
+![plots/2026-06-15-exp.png](./plots/2026-06-15-exp.png)
+
+**Why we think this happened / open questions.**
+
+- **Model too small?** The reference papers use models ≥ 10× larger (smallest ≈ 500M; we use ~50M). The effect may simply not appear at this scale.
+- **Patterns too hard / generation quirks?** There could be something wrong about the way we generate the patterns, or the patterns themselves may be too hard for a 50M model to learn. We will investigate this further in future experiments.
+
 ### 2026-06-16: Data-generation bugfixes: dyck pad token, nested matching, and NCA pad + regime
 
 **Context.** Initial pre-pretraining experiments with ~50M-parameter models showed the models plateauing at a loss floor that seemed higher than the patterns' true entropy. We suspected either insufficient model capacity or bugs in the data-generation pipeline. Systematic audit of the generators revealed two independent sets of design deficiencies in `dyck.py` and `nca.py` that needed correction before pre-pretraining could produce meaningful signal.
