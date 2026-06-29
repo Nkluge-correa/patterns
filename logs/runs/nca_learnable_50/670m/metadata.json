@@ -1,7 +1,7 @@
 {
   "resume_count": 0,
   "stages": {
-    "nca": {
+    "nca_learnable_50": {
       "resume_count": 0,
       "initialization_notes": [
         "No tokenizer specified. Continuing without a tokenizer because training is configured from scratch.",
@@ -14,11 +14,11 @@
         "Using learning rate decay type: cosine"
       ],
       "events": [
-        "Learning rate stage changed to: cosine_decay at step 200 | nca.",
+        "Learning rate stage changed to: cosine_decay at step 200 | nca_learnable_50.",
         "Epoch 2 of 1"
       ],
       "run_info": {
-        "Training stage": "nca",
+        "Training stage": "nca_learnable_50",
         "Run ID": "209412",
         "Hardware": "A100",
         "World size (total GPUs)": "2",
