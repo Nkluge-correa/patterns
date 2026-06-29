@@ -13,7 +13,7 @@
   "total_info_bits_per_token": 4.706595523427744,
   "structural_fraction": 0.12145961882206027,
   "gzip_complexity": 0.388584,
-  "oracle_loss_nats": 1.0688,
+  "oracle_loss_nats": null,
   "language_entropy_nats": 1.8,
   "approximation_used": false,
   "warnings": [
