@@ -1,0 +1,22 @@
+{
+  "run_name": "random",
+  "model_params": 670000000,
+  "total_train_tokens": 1000000000,
+  "total_train_flops": 4.02e+18,
+  "initial_train_loss_nats": 5.845946,
+  "final_train_loss_nats": 5.541273,
+  "final_val_loss_nats": 5.541273,
+  "S_nats_total": 2177312.2499996875,
+  "S_bits": 3141197.58554134,
+  "S_bits_per_train_token": 0.0031411975855413408,
+  "H_bits_per_test_token": 7.994367077311909,
+  "total_info_bits_per_token": 7.99750827489745,
+  "structural_fraction": 0.0003927720331845008,
+  "gzip_complexity": 1.000337,
+  "oracle_loss_nats": 5.5452,
+  "language_entropy_nats": null,
+  "approximation_used": false,
+  "warnings": [
+    "75 steps have loss BELOW final training loss (5.5413); the model may still be improving."
+  ]
+}
