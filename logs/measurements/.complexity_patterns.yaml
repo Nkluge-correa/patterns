@@ -78,7 +78,7 @@ datasets:
     n_shards: 1
     n_samples: 1000
     n_tokens: 1024000
-    vocab_size: 256
+    vocab_size: 3
     dtype: uint8
     compresslevel: 9
     mode: token
@@ -164,11 +164,47 @@ datasets:
       n_evaluated: 1000
       mean_gzip_complexity: 0.532792
     elapsed_seconds: 0.52
+  nca_easy:
+    n_shards: 1
+    n_samples: 1024
+    n_tokens: 4194304
+    vocab_size: 11
+    dtype: uint8
+    compresslevel: 9
+    mode: token
+    global:
+      original_bytes: 4194304
+      compressed_bytes: 137818
+      gzip_complexity: 0.032858
+      compression_ratio: 30.433644
+      space_saving: 0.967142
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.046029
+    elapsed_seconds: 3.80
+  nca_learnable_25:
+    n_shards: 1
+    n_samples: 1024
+    n_tokens: 4194304
+    vocab_size: 11
+    dtype: uint8
+    compresslevel: 9
+    mode: token
+    global:
+      original_bytes: 4194304
+      compressed_bytes: 773773
+      gzip_complexity: 0.184482
+      compression_ratio: 5.420587
+      space_saving: 0.815518
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.184223
+    elapsed_seconds: 4.80
   nca_learnable_50:
     n_shards: 1
     n_samples: 1000
     n_tokens: 1024000
-    vocab_size: 256
+    vocab_size: 11
     dtype: uint8
     compresslevel: 9
     mode: token
@@ -312,7 +348,7 @@ datasets:
     n_shards: 1
     n_samples: 1000
     n_tokens: 1024000
-    vocab_size: 256
+    vocab_size: 7
     dtype: uint8
     compresslevel: 9
     mode: token
