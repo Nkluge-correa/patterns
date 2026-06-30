@@ -2,7 +2,7 @@
 
 ## Main Idea
 
-Using patterns as a "surrogate language" in "pre-pretraining" can significantly enhance the performance of language models on downstream tasks. In essence, this approach involves teaching the model to understand simple and complex patterns before exposing them to natural language. This exposure allows the model to learn useful representations related to sequence modeling, which can be beneficial for various downstream tasks (e.g., language understanding, reasoning, etc.).
+Using patterns as a "surrogate language" in "pre-pretraining" can significantly enhance the performance of language models on downstream tasks. In essence, this approach involves teaching the model to understand simple and complex patterns before exposing them to natural language. This exposure allows the model to learn useful representations related to sequence modeling, which can be (hypothetically) beneficial for various downstream tasks.
 
 Some papers already explored this idea:
 
@@ -66,8 +66,9 @@ Note: ***"matching the complexity of synthetic pre-training data to the target d
 A proper ablation study would involve:
 
 * Training a language model from scratch on a fixed text dataset for a fixed number of steps / tokens.
-  * 10 billion tokens of natural language data could be a good place to start.
-  * [Fineweb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu#smaller-sample-versions) is a good candidate for the text dataset since it is relatively small and clean.
+  * 5-10 billion tokens of natural language data could be a good place to start.
+  * [c4](https://huggingface.co/datasets/allenai/c4) is a good candidate for the text dataset. Is a little less clean than Fineweb-Edu, but is cvan nserve as a contrast to see how pre-pretraining on patterns affects performance on a noisier dataset.
+  * [Fineweb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu#smaller-sample-versions) is a good candidate for the text dataset since it is relatively clean and of high quality.
   * [Open-Web-Math](https://huggingface.co/datasets/open-web-math/open-web-math) is a good candidate for the text dataset if we want to test on more math-heavy data.
   * [CodeParrot](https://huggingface.co/datasets/codeparrot/codeparrot-clean) is a good candidate for the text dataset if we want to test on more code-heavy data.
   * [FineWeb-2](https://huggingface.co/datasets/HuggingFaceFW/fineweb-2) is a good candidate for the text dataset if we want to test on more than just English data.
@@ -81,32 +82,33 @@ A proper ablation study would involve:
 * Compare how our evaluations differ as we tweak the level of complexity of the pre-pretraining patterns, and amount of pre-pretraining data used.
 * We could also ablate different proportions of the pre-pretraining data (e.g. 0%, 25%, 50%) and natural language data (e.g. 100%, 75%, 50%) to see how the two interact.
 * We should keep comparisons fair by controlling for the total amount of training data (pattern + natural language) and total number of training steps / tokens across all conditions.
-
-Note: Is very important to control all other aspects of the training process (e.g. model architecture, hyperparameters, etc.) to ensure that any differences in performance can be attributed to the pre-pretraining patterns.
-
 * For model architecture, we use a simple transformer-based language model (e.g. Llama2) to keep things manageable.
-* For sizes, we can test a coulple of scales (e.g., 500M, 1,5B, 3B) to see how the effects of pre-pretraining on patterns scale with model size.
+* For sizes, we can test a coulple of scales (e.g., 100M, 350M, 500M, 1B, 2B) to see how the effects of pre-pretraining on patterns scale with model size.
   * We expect that the benefits of pre-pretraining on patterns will be more pronounced for smaller models, and decrease as model size increases (see [source](https://arxiv.org/html/2603.10055v1#S5)).
-* A softmax-attention transformer vs. a hybrid model (e.g., Olmo3-Hybrid) would be interesting to compare, but maybe we can save that for a follow-up project.
+* A softmax-attention transformer vs. a hybrid model (e.g., use Qwen3.5 as a base) would be interesting to compare, but maybe we can save that for a follow-up project.
 * For the pre-pretraining patterns, we don't really need a tokenizer since we can just generate sequences of token IDs directly.
 * When we move to natural language pretraining, we should:
-    * Use a standard tokenizer from HuggingFace.
+    * Use a standard tokenizer (e.g., `HuggingFaceTB/SmolLM2-135M`).
     * We re-initialize (and re-size) the model's embedding layer to match the tokenizer's vocabulary size, and randomly initialize the new parameters.
     * If we follow the results and insights from [source](https://arxiv.org/html/2603.10055v1#S5), we should only maintain the attention weights accross the pre-pretraining and pre-training phases, and re-initialize all other parameters (e.g. feedforward layers, layer norms, etc.) to ensure that any benefits we see are due to the attention patterns learned during pre-pretraining. ***"[...] attention layers learn general-purpose mechanisms for tracking dependencies and inferring latent rules, while MLP layers specialize in storing domain-specific patterns and statistics. This division may explain why attention transfers universally from NCA to language, whereas MLP weights can introduce interference when the source and target domains differ substantially."***
 
-* Training hyperparameters:
+* Training hyperparameters (batch size & learning rate from scaling laws, see [source](https://arxiv.org/abs/2401.02954)):
 
-| Hyperparameter              | Pre-pre-training | Pre-training                                  |
-|-----------------------------|------------------|-----------------------------------------------|
-| Effective batch size        | 16               | 512                                           |
-| Sequence length             | 1024 tokens      | 1024 tokens                                   |
-| Learning rate               | $1\times10^{-4}$ | $5\times10^{-4}$                              |
-| LR schedule                 | Cosine w/ warmup | Cosine w/ warmup                              |
-| Warmup steps (% total)      | 10%              | 10%                                           |
-| Weight decay                | None             | $1\times10^{-4}$                              |
-| Gradient clipping           | None             | 1.0                                           |
+| Hyperparameter  (670M)      | Pre-pre-training                     | Pre-training                                 |
+|-----------------------------|--------------------------------------|----------------------------------------------|
+| Effective batch size        | 128 samples (524K tokens)            | 128 samples (524K tokens)                    |
+| Sequence length             | 4096 tokens                          | 4096 tokens                                  |
+| Learning rate               | $1\times10^{-3}$                     | $1\times10^{-3}$                             |
+| LR schedule                 | Cosine w/ warmup                     | Cosine w/ warmup                             |
+| Training steps              | 2000 steps (1B tokens)               | 10000 steps (5.2B tokens)                    |
+| Warmup steps (% total)      | 200 (10%)                            | 1000 (10%)                                   |
+| Weight decay                | 0.1                                  | 0.1                                          |
+| Gradient clipping           | 1.0                                  | 1.0                                          |
+| Precision                   | bfloat16                             | bfloat16                                     |
+| Optimizer                   | AdamW ($\beta_1{=}0.9, \beta_2{=}0.95$) | AdamW ($\beta_1{=}0.9, \beta_2{=}0.95$)   |
+| GPUs                        | 2× A100 or 4 x A40                   | 2× A100 or 4 x A40                           |
 
-Note: We should run every training condition with multiple random seeds (e.g. 3-5) to ensure that our results are robust and not due to random chance.
+Note: We should run every training condition with multiple random seeds (e.g. >=3) to ensure that our results are robust and not due to random chance.
 
 ## How can we measure the "usefulness" of patterns for pre-pretraining?
 
@@ -197,7 +199,7 @@ To create diverse behaviors:
 * Initial cell states are sampled per cell from a softmax over an 8-dimensional standard-normal vector (i.e. a spatially-uniform categorical prior whose class probabilities vary across rules).
 * The first **4 rollout steps are discarded as burn-in** so the recorded trajectory captures the rule's attractor rather than the random initial condition.
 * This produces dynamics ranging from stable and predictable patterns to highly chaotic ones.
-* Complexity filtering is delegated to the shared `--min-complexity` flag (gzip compression ratio of the final flattened sample); the same threshold (≥ 0.5 ≈ compression ratio ≤ 2.0) used in the NCA paper can be reproduced by passing `--min-complexity 0.5 --patterns nca`.
+* Complexity filtering is delegated to the shared `--min-complexity` flag (gzip compression ratio of the final flattened sample); the same threshold (≥ 0.5 ~ compression ratio ≤ 2.0) used in the NCA paper can be reproduced by passing `--min-complexity 0.5 --patterns nca`.
 
 In terms of tokenization:
 
@@ -222,35 +224,47 @@ In terms of tokenization:
 **Setup (held constant across all conditions).**
 
 - Model: ~50M-parameter Llama (hidden 512, 8 layers, 8 heads, ctx 4096), `config.json` per pattern with `vocab_size` matching the pattern's token range.
-- Text data: FineWeb-Edu, `sample/10BT` reduced to ~5B tokens, tokenized with `HuggingFaceTB/SmolLM2-135M`, packed to 4096-token blocks.
-- Budgets: pattern pre-pretraining ~1B tokens and FineWeb-Edu continual pretraining ~5.2B tokens. Same hyperparameters everywhere (`total_batch_size 131072`, `max_lr 0.002`, cosine decay, with the RNG seed set to 1337). All experiments ran on 2 A100.
+- Text data: FineWeb-Edu, `sample/10BT` reduced to ~5.2B tokens, tokenized with `HuggingFaceTB/SmolLM2-135M`, packed to 4096-token blocks.
+
+| Hyperparameter  (670M)      | Pre-pre-training                     | Pre-training                                 |
+|-----------------------------|--------------------------------------|----------------------------------------------|
+| Effective batch size        | 32 samples (131K tokens)             | 32 samples (131K tokens)                     |
+| Sequence length             | 4096 tokens                          | 4096 tokens                                  |
+| Learning rate               | $2\times10^{-3}$                     | $2\times10^{-3}$                             |
+| LR schedule                 | Cosine w/ warmup                     | Cosine w/ warmup                             |
+| Training steps              | 2000 steps (1B tokens)               | 10000 steps (5.2B tokens)                    |
+| Warmup steps (% total)      | 200 (10%)                            | 1000 (10%)                                   |
+| Weight decay                | 0.1                                  | 0.1                                          |
+| Gradient clipping           | 1.0                                  | 1.0                                          |
+| Precision                   | bfloat16                             | bfloat16                                     |
+| Optimizer                   | AdamW ($\beta_1{=}0.9, \beta_2{=}0.95$) | AdamW ($\beta_1{=}0.9, \beta_2{=}0.95$)   |
+| GPUs                        | 2× A100 or 4 x A40                   | 2× A100 or 4 x A40                           |
 
 - **Procedure (per pattern).** generate (250k samples) -> pre-pretrain on the pattern (no tokenizer, `continual_pretraining=false`) -> reset non-attention weights (`utils/reset_weights.py`, keeps attention) -> continual-pretrain on FineWeb-Edu (`continual_pretraining=true`, tokenizer restored) -> log the final FineWeb-Edu validation loss and compare it to the baseline.
 
 **Results.** Final FineWeb-Edu validation loss per pattern, sorted from best to worst (lower = better).
 
-| Pattern                 | vocab | FineWeb-Edu val | beats baseline (3.3557)? |
-|-------------------------|-------|-----------------|--------------------------|
-| noisy_palindrome        | 256   | 3.4289          | no                       |
-| palindrome              | 256   | 3.4334          | no                       |
-| composite_mirror_repeat | 256   | 3.4471          | no                       |
-| nested                  | 256   | 3.4556          | no                       |
-| reverse                 | 256   | 3.4558          | no                       |
-| shuffle_dyck            | 6     | 3.4624          | no                       |
-| mixer                   | 256   | 3.4629          | no                       |
-| identity                | 256   | 3.4909          | no                       |
-| hierarchical            | 256   | 3.4948          | no                       |
-| counting_anbncn         | 256   | 3.5135          | no                       |
-| periodic                | 256   | 3.5194          | no                       |
-| copy                    | 256   | 3.5285          | no                       |
-| permutation_cycle       | 256   | 3.5360          | no                       |
-| interleaving            | 256   | 3.5385          | no                       |
-| counting_anbn           | 256   | 3.5453          | no                       |
-| random (control)        | 256   | 3.7912          | no                       |
-| dyck                    | 6     | 3.7953          | no                       |
+| Pattern                 | vocab | FineWeb-Edu val |
+|-------------------------|-------|-----------------|
+| noisy_palindrome        | 256   | 3.4289          |
+| palindrome              | 256   | 3.4334          |
+| composite_mirror_repeat | 256   | 3.4471          |
+| nested                  | 256   | 3.4556          |
+| reverse                 | 256   | 3.4558          |
+| shuffle_dyck            | 6     | 3.4624          |
+| mixer                   | 256   | 3.4629          |
+| identity                | 256   | 3.4909          |
+| hierarchical            | 256   | 3.4948          |
+| counting_anbncn         | 256   | 3.5135          |
+| periodic                | 256   | 3.5194          |
+| copy                    | 256   | 3.5285          |
+| permutation_cycle       | 256   | 3.5360          |
+| interleaving            | 256   | 3.5385          |
+| counting_anbn           | 256   | 3.5453          |
+| random (control)        | 256   | 3.7912          |
+| dyck                    | 6     | 3.7953          |
 
-* **FineWeb-Edu only pretraining run yelded a `val_loss = 3.3557`.**
-
+* **FineWeb-Edu only pretraining run yelded a `val_loss = 3.3557`. No pattern beat this baseline.**
 
 **Findings.**
 
@@ -262,7 +276,7 @@ Below we show how much each pattern hurt the downstream loss, relative to the ba
 
 **Why we think this happened / open questions.**
 
-- **Model too small?** The reference papers use models ≥ 10× larger (smallest ≈ 500M; we use ~50M). The effect may simply not appear at this scale.
+- **Model too small?** The reference papers use models ≥ 10× larger (smallest ~ 500M; we use ~50M). The effect may simply not appear at this scale.
 - **Patterns too hard / generation quirks?** There could be something wrong about the way we generate the patterns, or the patterns themselves may be too hard for a 50M model to learn. We will investigate this further in future experiments.
 
 ### 2026-06-16: Data-generation bugfixes: dyck pad token, nested matching, and NCA pad + regime
@@ -370,40 +384,19 @@ where $\mathcal{P}_T$ is the set of probabilistic models evaluable in time $T$.
 
 Given that gzip complexity approximates Kolmogorov complexity (total information content), and validation loss approximates the irreducible entropy (unpredictability), epiplexity fills the gap by quantifying the learnable structure that lies between these two extremes, i.e., would help to differentiate two datasets with the *compressability* of gzip but different *predictability*. As far as I know, the relation of epiplexity to pre-pretraining has not been explored before, but it seems like a promising lens for understanding why certain patterns are more effective for transfer than others.
 
-#### Why gzip complexity is insufficient
-
-Our current complexity metric (`tools/complexity.py`) measures:
-
-$$\text{complexity} = \frac{\text{compressed bytes}}{\text{original bytes}}$$
-
-This approximates **Kolmogorov complexity** — the *total* information content, not the *structural* component. It cannot distinguish three fundamentally different cases that all score the same:
-
-| Data                                    | Gzip complexity | $S_T$ (epiplexity) | $H_T$ (time-bounded entropy) | Why they differ                                                       |
-|-----------------------------------------|-----------------|--------------------|------------------------------|-----------------------------------------------------------------------|
-| `random` (uniform noise)                | $\approx 1.0$   | $\approx 0$        | $\approx n$ (maximal)        | Incompressible because it's actually random                           |
-| Richly structured (e.g., `dyck`, `nca`) | $\approx 1.0$   | **high**           | moderate                     | Incompressible because it encodes complex learnable structure         |
-| `palindrome`                            | $\approx 1.0$   | low                | moderate                     | "Incompressible" because LZ77's sliding window misses mirror symmetry |
-
-Gzip conflates these three cases. Epiplexity will disambiguate them: `random` has $S_T \approx 0$ (nothing to learn), `dyck` has $S_T \gg 0$ (rich structure absorbed), and `palindrome` falls somewhere in between. For pre-pretraining, we want patterns with **high $S_T$**, i.e., data that forces the model to build non-trivial internal circuits.
-
-The three-part spectrum of all data:
-
 ```
-                    High Epiplexity (S_T)
-                    (complex, structured, learnable)
-                           /\
-                          /  \
-                         /    \
-                        /      \
-                       /        \
-                      /          \
-    Low S_T, Low H_T /            \ High S_T, High H_T
-    (trivial,       /              \ (natural language,
-     predictable)  /                \  chess, NCA)
-                  /__________________\
-    Low S_T, High H_T  
-    (CSPRNG, uniform noise,  
-     shuffled pixels, Rule 30 ECA)
+                    H_T
+                     ^
+                     |
+      Noise          |        Natural systems
+  (CSPRNG, Rule 30)  |   (language, chess, NCA)
+                     |
+---------------------+------------------------> S_T
+                     |
+     Trivial         |
+ (constant strings,  |
+   repetitions)      |
+                     |
 ```
 
 #### Prequential estimation methodology
@@ -425,10 +418,10 @@ The time bound $T$ is the total FLOPs spent: $T = 6ND + 2N\mathcal{D}$ (forward 
 
 | Property                                          | Implication                                                                                                                              |
 |---------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
-| Convex loss curves (steep early drop → long tail) | The area is concentrated in early training; $S_T$ captures rapid rule discovery                                                          |
-| $S_T$ is an **upper bound** on true epiplexity    | We can only overestimate, never underestimate — conservative for ranking                                                                 |
+| Convex loss curves (steep early drop -> long tail)| The area is concentrated in early training; $S_T$ captures rapid rule discovery                                                          |
+| $S_T$ is an **upper bound** on true epiplexity    | We can only overestimate, never underestimate                                                                                            |
 | $S_T$ is **observer-relative**                    | Depends on model size $N$ and compute budget $T$; a pattern that looks random to a 1M-param model may show structure to a 1B-param model |
-| $S_T$ saturates                                   | Once the model has extracted all learnable structure, further training adds negligible $S_T$ — the loss curve flattens                   |
+| $S_T$ saturates                                   | Once the model has extracted all learnable structure, further training adds negligible $S_T$, i.e., the loss curve flattens              |
 
 #### Implementation: `tools/epiplexity.py`
 
@@ -436,7 +429,7 @@ We implemented the prequential estimator as a standalone CLI tool that computes 
 
 #### Example: FineWeb-Edu 670M baseline
 
-As a reference point, we ran the tool on our existing 670M-parameter model trained on 5.2B tokens of FineWeb-Edu natural language data. The full report is at [`logs/runs/fineweb-edu-670m/epiplexity.md`](runs/fineweb-edu-670m/epiplexity.md).
+As a reference point, we ran the tool on our existing 670M-parameter model trained on 5.2B tokens of FineWeb-Edu natural language data. The full report is at [`reports/fineweb_edu/670m.md`](reports/fineweb_edu/670m.md).
 
 | Metric                                   | Value                 | Interpretation                                                                                                |
 |------------------------------------------|-----------------------|---------------------------------------------------------------------------------------------------------------|
@@ -453,8 +446,59 @@ This gives us a natural-language baseline: when we pre-pretrain on patterns and 
 
 | Our question                                                | Epiplexity's answer                                                                                                                                                                |
 |-------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Which patterns are most "useful" for pre-pretraining?       | Patterns with **high $S_T$** — not just low loss. High $S_T$ means the model had to build non-trivial internal circuits.                                                           |
-| How does pattern complexity affect downstream performance?  | $S_T$ quantifies structural complexity *as absorbed by the model* — more relevant than gzip or oracle loss alone.                                                                  |
+| Which patterns are most "useful" for pre-pretraining?       | Patterns with **high $S_T$**. Not just low loss. High $S_T$ means the model had to build non-trivial internal circuits.                                                            |
+| How does pattern complexity affect downstream performance?  | $S_T$ quantifies structural complexity *as absorbed by the model*. More relevant than gzip or oracle loss alone.                                                                   |
 | Is gzip complexity a good proxy for "learnable complexity"? | **No.** Gzip conflates noise and structure. $S_T$ separates them. A quadrant plot ($S_T$ vs. gzip) would reveal which patterns are high-structure vs. merely incompressible noise. |
 | How much pattern data is enough?                            | $S_T$ saturates as the model extracts all available structure. When $S_T$ stops growing with more data, the pattern is "exhausted."                                                |
 | Does pre-pretraining build transferable circuits?           | Measure $S_T$ during pre-pretraining, then measure it again during NL training. If pattern-acquired $S_T$ is conserved or amplified, transfer is occurring.                        |
+
+### 2026-06-30: Mirror-symmetry patterns are unlearnable by causal transformers
+
+**Context.** Our 670M-parameter experiments revealed a mind-fucking result: four patterns involving mirror symmetry (`palindrome`, `reverse`, `nested`, and `noisy_palindrome`) produced loss curves identical to `random` (S_T ~ 0.0037 bits/token, structural fraction ~ 0.05%). This was surprising because the oracle next-token loss for these patterns is ~2.77 nats (half of the uniform baseline ln(256) ~ 5.545), meaning a perfect oracle could predict at least half the tokens. Real structure exists. The model just couldn't access it.
+
+We initially suspected a generation bug, a model capacity limit, or a subtle error in the data pipeline. The actual cause is deeper and, in retrospect, obvious.
+
+**The diagnosis: `copy` vs `reverse` as a controlled experiment.**
+
+These two patterns are structurally identical except for the *direction* of the deterministic copy:
+
+| Pattern   | 2nd-half rule                                           | Oracle loss | gzip per-sample | Learned? |
+|-----------|---------------------------------------------------------|-------------|-----------------|----------|
+| `copy`    | `out[half + j] = out[j]` (forward, **constant** offset) | 2.3475      | 0.465           | ✅ yes   |
+| `reverse` | `out[b−1−j] = out[j]` (mirror, **varying** offset)      | 2.7733      | 1.000           | ❌ no    |
+
+Same vocab (256), same length, same "50% free draws + 50% deterministic copies" structure, same model, same token budget. The *only* difference is the offset function. `copy` is learned; `reverse` is not. This isolates the cause to the reflection operation itself.
+
+We verified the generated data is perfectly correct: mirror-match fraction = 1.000 for all four patterns, forward-copy fraction ~ chance (1/255). The data contains maximal reflective structure and **zero** forward-repeat structure simultaneously.
+
+**Why a constant offset is learnable and a mirror offset is not.**
+
+To predict the deterministic half, the model's induction head must attend to the source token and copy it:
+
+- **`copy`:** source = `p − half`. One fixed relative offset works for *every* position in the second half. A single induction head with one relative-position bias solves all positions at once.
+
+- **`palindrome`/`reverse`/`nested`:** source = `2·half − 1 − p`. The offset is `1, 3, 5, …, 1023`, i.e., a *different* offset at every position. No single shift, no content cue (first half is i.i.d. uniform, so induction-by-content can't work). The model would need to synthesize a position-dependent reflection-about-midpoint addressing function. Crucially, **no single position gives a foothold that generalizes to its neighbours**. Fixing position 512 (offset 1) teaches nothing about position 513 (offset 3). With no low-rank shared solution, SGD converges to the only remaining option: predict uniform = ln(256) = 5.545.
+
+The oracle loss (2.7726) describes a function that *exists and is expressible* by the architecture. But expressibility !=  reachability by SGD.
+
+**The same limitation, two domains: gzip and causal attention.**
+
+Gzip reported these patterns as random (complexity ~ 1.000). We initially attributed this to DEFLATE's sliding window. The real reason is more fundamental: LZ77 only emits back-references to earlier **forward** substrings. A reversed copy is not a forward substring match, so LZ77 can't represent it. Exactly like the induction head can't. **gzip and a causal transformer are both forward-prefix matchers, and they fail on reflection for the same structural reason.**
+
+This connects to known results: forward copy is the canonical induction-head task (Olsson et al. [2022](https://arxiv.org/abs/2209.11895)), while string reversal is a known-hard case in RASP-L (Zhou et al., "What Algorithms Can Transformers Learn", [2023](https://arxiv.org/abs/2310.16028)). `copy` is expressible in RASP-L, `reverse` requires position arithmetic that standard attention won't induce.
+
+**Implications for the epiplexity framework.**
+
+This insight validates a key distinction in our measurement framework: **oracle loss measures information-theoretic compressibility; epiplexity (S_T) measures SGD-reachable structure.** For mirror patterns these diverge maximally. High theoretical structure, zero learnable structure. It flags patterns whose structure is real but not autoregressively inducible. For pre-pretraining, these patterns teach the model essentially nothing (they look like noise), making them poor curriculum candidates despite their apparent syummetrical elegance.
+
+The `composite_mirror_repeat` pattern confirms the boundary: its internal palindrome blocks are not individually learnable, but the *forward repeat* of the entire palindrome block is catchable (gzip = 0.505, oracle = 1.386), so it sits at a partially-learnable intermediate point.
+
+**Action taken.**
+
+We removed `palindrome`, `reverse`, `nested`, and `noisy_palindrome` from the codebase. They are no longer registered as available patterns. The `composite_mirror_repeat` pattern is retained since its forward-repeat structure gives it a partial foothold for learning.
+
+**Open questions.**
+
+- At very short context lengths (16–32 tokens), the offset range collapses and the model *should* learn reflection — confirming it's reflection-at-length, not impossibility.
+- A bidirectional encoder (or a model with reflective relative-position biases) should learn these patterns — confirming this is an inductive-bias limit of *causal* attention, not the data.
+- Does the existence of these "S_T ~ 0 despite oracle << uniform" patterns suggest a useful diagnostic: patterns where oracle loss and achieved loss diverge may help characterize the inductive biases of different architectures?

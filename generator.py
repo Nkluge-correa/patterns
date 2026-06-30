@@ -5,16 +5,12 @@ sequence models.
 
 Available patterns:
     - periodic: Repeating block (e.g. ABCABCABC).
-    - palindrome: Mirror symmetry (e.g. ABCCBA).
     - copy: Block duplication (e.g. ABCD ABCD ABCD).
-    - reverse: Sequence + reverse with delimiter (e.g. ABCD | DCBA).
     - counting_anbn: Equal counts of two symbols (e.g. AAABBB).
     - counting_anbncn: Equal counts of three symbols (e.g. AAABBBCCC).
-    - nested: Recursive palindromic structure (e.g. ABCDDCBA).
     - interleaving: Interleaved patterns (e.g. ABABAB or AABBAABB).
     - permutation_cycle: Cyclic permutations (e.g. ABCD BCDA CDAB DABC).
     - hierarchical: Local + global structure (e.g. ABAB CCCC ABAB).
-    - noisy_palindrome: Palindrome with ~10% random corruption.
     - nca: 2D grid evolved by a random Neural Cellular Automaton rule.
     - dyck: Single bracket type (e.g. (()())).
     - shuffle_dyck: Nested typed brackets, top-of-stack matched (e.g. ([{}])).
@@ -100,16 +96,12 @@ expected unique token counts per pattern with `--vocab-size 256` and
 | Pattern                 | Unique Tokens | Actual Vocab Size |
 |-------------------------|---------------|-------------------|
 | periodic                | 255           | 256               |
-| palindrome              | 255           | 256               |
 | copy                    | 256           | 256               |
-| reverse                 | 256           | 256               |
 | counting_anbn           | 255           | 256               |
 | counting_anbncn         | 256           | 256               |
-| nested                  | 255           | 256               |
 | interleaving            | 255           | 256               |
 | permutation_cycle       | 255           | 256               |
 | hierarchical            | 256           | 256               |
-| noisy_palindrome        | 255           | 256               |
 | nca                     | 11            | 11                |
 | dyck                    | 2             | 3                 |
 | shuffle_dyck            | 6             | 7                 |
@@ -121,6 +113,10 @@ expected unique token counts per pattern with `--vocab-size 256` and
 - All pattwerns that have a +1 mismatch between unique tokens and
   actual vocab size are due to the reserved PAD_ID (0) being stripped
   from the generator's vocabulary before sample generation.
+- All patterns need to mask the loss for PAD_ID (0) during training,
+  since it is not part of the actual content vocabulary.
+- For NCA, we also need to mask the loss of token IDs 1 and 2, which are
+  used for the NCA's grid delimiter (i.e., <grid> and </grid> tokens).
 """
 
 import argparse

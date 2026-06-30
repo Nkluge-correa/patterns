@@ -146,24 +146,6 @@ datasets:
       n_evaluated: 1000
       mean_gzip_complexity: 0.030250
     elapsed_seconds: 0.41
-  mixer:
-    n_shards: 1
-    n_samples: 1000
-    n_tokens: 1024000
-    vocab_size: 256
-    dtype: uint8
-    compresslevel: 9
-    mode: token
-    global:
-      original_bytes: 1024000
-      compressed_bytes: 508905
-      gzip_complexity: 0.496978
-      compression_ratio: 2.012163
-      space_saving: 0.503022
-    per_sample:
-      n_evaluated: 1000
-      mean_gzip_complexity: 0.532792
-    elapsed_seconds: 0.52
   nca_easy:
     n_shards: 1
     n_samples: 1024
@@ -218,60 +200,6 @@ datasets:
       n_evaluated: 1000
       mean_gzip_complexity: 0.334464
     elapsed_seconds: 2.96
-  nested:
-    n_shards: 1
-    n_samples: 1000
-    n_tokens: 1024000
-    vocab_size: 256
-    dtype: uint8
-    compresslevel: 9
-    mode: token
-    global:
-      original_bytes: 1024000
-      compressed_bytes: 1024345
-      gzip_complexity: 1.000337
-      compression_ratio: 0.999663
-      space_saving: -0.000337
-    per_sample:
-      n_evaluated: 1000
-      mean_gzip_complexity: 1.022461
-    elapsed_seconds: 0.59
-  noisy_palindrome:
-    n_shards: 1
-    n_samples: 1000
-    n_tokens: 1024000
-    vocab_size: 256
-    dtype: uint8
-    compresslevel: 9
-    mode: token
-    global:
-      original_bytes: 1024000
-      compressed_bytes: 1024345
-      gzip_complexity: 1.000337
-      compression_ratio: 0.999663
-      space_saving: -0.000337
-    per_sample:
-      n_evaluated: 1000
-      mean_gzip_complexity: 1.022461
-    elapsed_seconds: 0.58
-  palindrome:
-    n_shards: 1
-    n_samples: 1000
-    n_tokens: 1024000
-    vocab_size: 256
-    dtype: uint8
-    compresslevel: 9
-    mode: token
-    global:
-      original_bytes: 1024000
-      compressed_bytes: 1024345
-      gzip_complexity: 1.000337
-      compression_ratio: 0.999663
-      space_saving: -0.000337
-    per_sample:
-      n_evaluated: 1000
-      mean_gzip_complexity: 1.022461
-    elapsed_seconds: 0.59
   periodic:
     n_shards: 1
     n_samples: 1000
@@ -326,24 +254,6 @@ datasets:
       n_evaluated: 1000
       mean_gzip_complexity: 1.022461
     elapsed_seconds: 0.60
-  reverse:
-    n_shards: 1
-    n_samples: 1000
-    n_tokens: 1024000
-    vocab_size: 256
-    dtype: uint8
-    compresslevel: 9
-    mode: token
-    global:
-      original_bytes: 1024000
-      compressed_bytes: 1024345
-      gzip_complexity: 1.000337
-      compression_ratio: 0.999663
-      space_saving: -0.000337
-    per_sample:
-      n_evaluated: 1000
-      mean_gzip_complexity: 1.022461
-    elapsed_seconds: 0.70
   shuffle_dyck:
     n_shards: 1
     n_samples: 1000

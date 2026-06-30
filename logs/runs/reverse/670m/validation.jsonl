@@ -1,2 +1,0 @@
-{"kwh": 0.436415, "loss": 5.546948, "stage_name": "reverse", "status": "validation", "step": 200, "val_time_s": 16.535614}
-{"kwh": 4.170827, "loss": 5.542191, "stage_name": "reverse", "status": "validation", "step": 2000, "val_time_s": 15.982272}

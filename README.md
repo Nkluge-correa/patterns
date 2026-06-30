@@ -33,28 +33,24 @@ The codebase is split across a few focused modules — see [Where things live](#
 
 ## The pattern catalogue
 
-The 18 currently registered patterns and what each is meant to test:
+The 14 currently registered patterns and what each is meant to test:
 
 
 | Pattern                   | Schematic example                   | What it probes                                                                  |
 |---------------------------|-------------------------------------|---------------------------------------------------------------------------------|
 | `periodic`                | `ABCABCABC`                         | Fixed-period repetition (regular language).                                     |
-| `palindrome`              | `ABCCBA`                            | Mirror symmetry around the center (CFG-recognizable).                           |
 | `copy`                    | `ABCD ABCD ABCD`                    | Block duplication / verbatim copying.                                           |
-| `reverse`                 | `ABCD \| DCBA`                      | Source + reverse separated by an explicit delimiter.                            |
 | `counting_anbn`           | `AAABBB`                            | Equal counts of two symbols (CFG counting `a^n b^n`).                           |
 | `counting_anbncn`         | `AAABBBCCC`                         | Equal counts of three symbols (mildly context-sensitive `a^n b^n c^n`).         |
-| `nested`                  | `ABCDDCBA`                          | Recursive palindromic structure from `S → a S a`.                               |
 | `interleaving`            | `ABABAB` or `AABBAABB`              | Alternation / block-interleaving of two symbols.                                |
 | `permutation_cycle`       | `ABCD BCDA CDAB DABC`               | Cyclic permutations of a base block.                                            |
 | `hierarchical`            | `ABAB CCCC ABAB`                    | Local + global structure mixed at multiple scales.                              |
-| `noisy_palindrome`        | `ABCXCBA` (~10% corrupted)          | Palindrome under random token corruption (robustness to noise).                 |
 | `dyck`                    | `(()())`                            | Dyck-1: balanced brackets of a single type.                                     |
 | `shuffle_dyck`            | `([{}])`                            | Nested typed Dyck-k: closer must match the most recently opened type.           |
 | `random`                  | `qZ7ξ%`                             | Uniformly random tokens — unstructured baseline / control.                      |
 | `identity`                | `AAAAAA`                            | Single-token repetition (zero-entropy floor).                                   |
-| `composite_mirror_repeat` | `ABCCBA ABCCBA`                     | Multi-rule composition: a small palindrome repeated periodically.               |
-| `mixer`                   | `[periodic][palindrome][etc]`       | Context filled with consecutive segments from different pattern types.          |
+| `composite_mirror_repeat` | `ABCCBA ABCCBA`                     | Multi-rule composition: a small symmetric block repeated periodically.          |
+| `mixer`                   | `[periodic][copy][etc]`             | Context filled with consecutive segments from different pattern types.          |
 | `nca`                     | `<grid> . </grid> <grid> . </grid>` | Stochastic neural cellular automaton rollout.                                   |
 
 * Letters in the schematics stand for *distinct vocabulary tokens*; concrete IDs are sampled per call so different samples use different surface tokens.
@@ -67,7 +63,7 @@ Each pattern writes its shards into a dedicated subdirectory named after the pat
 out/
   periodic/
     patterns.0000.jsonl
-  palindrome/
+  copy/
     patterns.0000.jsonl
   dyck/
     patterns.0000.jsonl
@@ -215,7 +211,7 @@ def gen_my_pattern(vocab, target_len, rng):
 
 The decorator inserts an entry into the global `PATTERNS` dict, so the new pattern is automatically picked up by `compose_sample`, the debug printer, and the main write loop. **No other file needs to change** (unless you created a new module, in which case add one import to `generators/__init__.py`).
 
-Naming convention: lowercase, snake_case, descriptive of the structural property (`palindrome`, `counting_anbn`, `shuffle_dyck`). The name appears verbatim in each record's `metadata.pattern_type`.
+Naming convention: lowercase, snake_case, descriptive of the structural property (`periodic`, `counting_anbn`, `shuffle_dyck`). The name appears verbatim in each record's `metadata.pattern_type`.
 
 ### 3. Verify with `--debug`
 

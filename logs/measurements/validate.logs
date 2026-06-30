@@ -8,24 +8,20 @@
   Pattern                      Oracle Loss    Random    Gzip   Improvement
                               (best possible) (uniform)   Ratio (Random÷Oracle)
   ──────────────────────────────────────────────────────────────────────
-  shuffle_dyck (k=3)                1.0688    1.7918    0.34        1.68 ×
-  dyck-1                            0.6759    0.6931    0.18        1.03 ×
-  periodic                          0.0055    5.5452    0.01     1013.86 ×
-  palindrome                        2.7726    5.5452    1.01        2.00 ×
-  copy                              2.3475    5.5452    0.44        2.36 ×
-  reverse                           2.7733    5.5452    1.01        2.00 ×
-  counting_anbn                     0.1666    5.5452    0.08       33.28 ×
-  counting_anbncn                   0.1134    5.5452    0.08       48.92 ×
-  nested                            2.7726    5.5452    1.01        2.00 ×
-  interleaving                      0.0027    5.5452    0.01     2048.00 ×
-  permutation_cycle                 0.0047    5.5452    0.01     1175.32 ×
-  hierarchical                      0.0041    5.5452    0.01     1365.00 ×
-  noisy_palindrome †                3.2759    5.5452    1.01        1.69 ×
-  random                            5.5452    5.5452    1.01        1.00 ×
-  identity                          0.0014    5.5452    0.01     4096.00 ×
-  composite_mirror_repeat           1.3863    5.5452    0.52        4.00 ×
-  mixer † ⚠                         1.2988    5.5452    0.47        4.27 ×
-  nca (learnable_50)                1.0052    2.0794    0.30        2.07 ×
+  shuffle_dyck (k=3)                1.0688    1.7918    0.34        1.68 x
+  dyck-1                            0.6759    0.6931    0.18        1.03 x
+  periodic                          0.0055    5.5452    0.01     1013.86 x
+  copy                              2.3475    5.5452    0.44        2.36 x
+  counting_anbn                     0.1666    5.5452    0.08       33.28 x
+  counting_anbncn                   0.1134    5.5452    0.08       48.92 x
+  interleaving                      0.0027    5.5452    0.01     2048.00 x
+  permutation_cycle                 0.0047    5.5452    0.01     1175.32 x
+  hierarchical                      0.0041    5.5452    0.01     1365.00 x
+  random                            5.5452    5.5452    1.01        1.00 x
+  identity                          0.0014    5.5452    0.01     4096.00 x
+  composite_mirror_repeat           1.3863    5.5452    0.52        4.00 x
+  mixer † ⚠️                        1.2988    5.5452    0.47        4.27 x
+  nca (learnable_50)                1.0052    2.0794    0.30        2.07 x
 
   Oracle Loss    Best possible cross-entropy — a perfect model that learned the rule.
   Random         Cross-entropy of a uniform random guesser = ln(vocab size).
@@ -33,7 +29,7 @@
   Improvement    Random ÷ Oracle.  How many times better than random guessing.
                  Values near 1.0 -> little or no learnable signal in the data.
   🔮             Oracle value is a LOOSE lower bound; true floor is higher.
-  ⚠️             See Diagnostic Checks section below.
+  ⚠️ ️             See Diagnostic Checks section below.
 
 ────────────────────────────────────────────────────────────────────────────────
   DIAGNOSTIC CHECKS
@@ -55,20 +51,16 @@
   shuffle_dyck (k=3)                 0%             ✅ OK
   dyck-1                             0%             ✅ OK
   periodic                           0%             ✅ OK
-  palindrome                         0%             ✅ OK
   copy                               0%             ✅ OK
-  reverse                            0%             ✅ OK
   counting_anbn                      0%             ✅ OK
   counting_anbncn                    0%             ✅ OK
-  nested                             0%             ✅ OK
   interleaving                       0%             ✅ OK
   permutation_cycle                  0%             ✅ OK
   hierarchical                       0%             ✅ OK
-  noisy_palindrome                   0%             ✅ OK
   random                             0%             ✅ OK
   identity                           0%             ✅ OK
   composite_mirror_repeat            0%             ✅ OK
-  mixer                              0%     ⚠ PAD IN BODY
+  mixer                              0%     ⚠️  PAD IN BODY
   nca                              400 tail            ✅ OK
 
   🔹 Empirical Unigram Loss  (naive token-frequency baseline for comparison)
@@ -77,16 +69,12 @@
   shuffle_dyck (k=3)              1.7918     1.0688     0.7230
   dyck-1                          0.6931     0.6759     0.0173
   periodic                        5.3322     0.0055     5.3267
-  palindrome                      5.5410     2.7726     2.7684
   copy                            5.5415     2.3475     3.1940
-  reverse                         5.5419     2.7733     2.7686
   counting_anbn                   5.1809     0.1666     5.0143
   counting_anbncn                 5.3051     0.1134     5.1918
-  nested                          5.5410     2.7726     2.7684
   interleaving                    5.1394     0.0027     5.1367
   permutation_cycle               5.2989     0.0047     5.2942
   hierarchical                    5.2443     0.0041     5.2402
-  noisy_palindrome                5.5410     3.2759     2.2651
   random                          5.5411     5.5452    -0.0041
   identity                        4.7662     0.0014     4.7648
   composite_mirror_repeat         5.5407     1.3863     4.1544
@@ -101,8 +89,6 @@
   easy               0.1    0.0     0.0761         3.7%  learnable ✅
 
   🔹 Notes on Oracle Loss Bounds
-    noisy_palindrome  — random corruptions credited as predictable when value
-                         coincidentally reappears; true floor is higher.
     mixer             — whole-context concatenation of sub-patterns; ignores
                          cross-segment uncertainty.
     counting_anbn(*)  — EXACT oracle used (charges switch-point entropy).

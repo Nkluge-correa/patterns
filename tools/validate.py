@@ -40,15 +40,12 @@ from utils import get_vocab
 
 # --------------------------------------------------------------------------- #
 # Patterns whose generic value-membership floor is only a LOOSE lower bound:
-#   noisy_palindrome -- random corruptions are credited as predictable when
-#                       their value coincidentally reappears, so the true
-#                       floor is higher.
-#   mixer            -- a whole-context concatenation of sub-patterns; the
-#                       induction credit ignores cross-segment uncertainty.
+#   mixer -- a whole-context concatenation of sub-patterns; the induction
+#            credit ignores cross-segment uncertainty.
 # NOTE: the counting_* patterns are handled by a dedicated EXACT oracle and
 # are not in this set.
 # --------------------------------------------------------------------------- #
-_LOOSE_FLOOR_PATTERNS = frozenset({"noisy_palindrome", "mixer"})
+_LOOSE_FLOOR_PATTERNS = frozenset({"mixer"})
 
 # Match the production configuration set in generator.py.
 generators.dyck._SHARED_IDS = True
@@ -62,16 +59,12 @@ nca_mod._SHARED_RULE = True
 # --------------------------------------------------------------------------- #
 SIMPLE_PATTERNS = [
     "periodic",
-    "palindrome",
     "copy",
-    "reverse",
     "counting_anbn",
     "counting_anbncn",
-    "nested",
     "interleaving",
     "permutation_cycle",
     "hierarchical",
-    "noisy_palindrome",
     "random",
     "identity",
     "composite_mirror_repeat",
@@ -445,15 +438,15 @@ def _print_primary_table(rows):
         name = r["name"]
         flags = ""
         if r.get("loose_bound"):
-            flags += " †"
+            flags += " 🔮"
         if r.get("warnings"):
-            flags += " ⚠"
+            flags += " ⚠️ "
         oracle = r["oracle_loss"]
         rand = r["random_baseline"]
         gz = r.get("gzip_ratio")
         impr = rand / oracle if oracle > 0 else float("inf")
         gz_str = f"{gz:>7.2f}" if gz is not None else "     —"
-        print(f"  {name + flags:<27} {oracle:>12.4f} {rand:>9.4f} {gz_str} {impr:>11.2f} ×")
+        print(f"  {name + flags:<27} {oracle:>12.4f} {rand:>9.4f} {gz_str} {impr:>11.2f} x")
     print()
     print("  Oracle Loss    Best possible cross-entropy — a perfect model that learned the rule.")
     print("  Random         Cross-entropy of a uniform random guesser = ln(vocab size).")
@@ -507,20 +500,22 @@ def _print_diagnostics(dyck_rows, simple_rows, nca_blob):
         if pf is not None:
             ok = r.get("pad_ok", True)
             print(
-                f"  {r['name']:<27} {pf * 100:>8.0f}%     {'✅ OK' if ok else '⚠ PAD IN BODY':>12}"
+                f"  {r['name']:<27} {pf * 100:>8.0f}%     {'✅ OK' if ok else '⚠️  PAD IN BODY':>12}"
             )
     for r in simple_rows:
         pf = r.get("pad_frac")
         if pf is not None:
             ok = r.get("pad_ok", True)
             print(
-                f"  {r['name']:<27} {pf * 100:>8.0f}%     {'✅ OK' if ok else '⚠ PAD IN BODY':>12}"
+                f"  {r['name']:<27} {pf * 100:>8.0f}%     {'✅ OK' if ok else '⚠️  PAD IN BODY':>12}"
             )
     if nca_blob:
         total_tail = nca_blob["tail_total"]
         nonpad = nca_blob["tail_nonpad"]
         ok = nonpad == 0
-        print(f"  {'nca':<27} {total_tail:>8} tail    {'✅ OK' if ok else '⚠ NON-PAD IN TAIL':>12}")
+        print(
+            f"  {'nca':<27} {total_tail:>8} tail    {'✅ OK' if ok else '⚠️  NON-PAD IN TAIL':>12}"
+        )
 
     # Empirical unigram comparison
     print("\n  🔹 Empirical Unigram Loss  (naive token-frequency baseline for comparison)")
@@ -558,8 +553,6 @@ def _print_diagnostics(dyck_rows, simple_rows, nca_blob):
 
     # Loose-bound notes
     print("\n  🔹 Notes on Oracle Loss Bounds")
-    print("    noisy_palindrome  — random corruptions credited as predictable when value")
-    print("                         coincidentally reappears; true floor is higher.")
     print("    mixer             — whole-context concatenation of sub-patterns; ignores")
     print("                         cross-segment uncertainty.")
     print("    counting_anbn(*)  — EXACT oracle used (charges switch-point entropy).")
