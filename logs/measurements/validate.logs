@@ -20,7 +20,7 @@
   random                            5.5452    5.5452    1.01        1.00 x
   identity                          0.0014    5.5452    0.01     4096.00 x
   composite_mirror_repeat           1.3863    5.5452    0.52        4.00 x
-  mixer † ⚠️                        1.2988    5.5452    0.47        4.27 x
+  mixer 🔮 ⚠️                       0.4855    5.5452    0.17       11.42 x
   nca (learnable_50)                1.0052    2.0794    0.30        2.07 x
 
   Oracle Loss    Best possible cross-entropy — a perfect model that learned the rule.
@@ -29,7 +29,7 @@
   Improvement    Random ÷ Oracle.  How many times better than random guessing.
                  Values near 1.0 -> little or no learnable signal in the data.
   🔮             Oracle value is a LOOSE lower bound; true floor is higher.
-  ⚠️ ️             See Diagnostic Checks section below.
+  ⚠️             See Diagnostic Checks section below.
 
 ────────────────────────────────────────────────────────────────────────────────
   DIAGNOSTIC CHECKS
@@ -78,7 +78,7 @@
   random                          5.5411     5.5452    -0.0041
   identity                        4.7662     0.0014     4.7648
   composite_mirror_repeat         5.5407     1.3863     4.1544
-  mixer                           5.5367     1.2988     4.2378
+  mixer                           5.5225     0.4855     5.0370
 
   🔹 NCA Regime Ladder  (cell oracle vs uniform baseline ln(d)=2.0794)
   Regime            Temp   Bias     Oracle   % of ln(d)      Verdict
