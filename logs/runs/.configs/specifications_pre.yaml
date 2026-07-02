@@ -1,0 +1,90 @@
+# Directory settings
+checkpoint_dir: "/home/nklugeco/checkpoints"
+train_dataset_dir:
+  - "/home/nklugeco/data/<dataset>/packed"
+val_dataset_dir: "/home/nklugeco/data/<dataset>/val"
+dataset_type: "parquet"
+cache_dir: "/home/nklugeco/.cache"
+
+# Data loading settings
+pin_memory: true
+num_workers_for_dataloader: 8
+prefetch_factor: 4
+shuffle_dataset: true
+additional_mask_token_ids: null
+
+# Model and tokenizer settings
+path_to_model_config: "/home/nklugeco/config.json"
+base_model: "/home/nklugeco/<pattern>/model"
+tokenizer_name_or_path: "HuggingFaceTB/SmolLM2-135M"
+chat_template_path: null
+attn_implementation: "flash_attention_2"
+continual_pretraining: true
+enable_expert_parallelism: false
+use_kernels: false
+
+# Context extension overrides (only relevant for continual pretraining)
+new_max_position_embeddings: null
+new_rope_theta: null
+rope_scale_factor: null
+
+# Training settings
+total_batch_size: 524288
+micro_batch_size: 16 # 8 for 4 GPUS (4 GA) and 16 for 2 GPUS (4 GA)
+eval_micro_batch_size: 16
+num_train_epochs: 1
+max_steps: 10000
+seed: 1337
+
+# Optimizer settings
+optimizer_type: "adamw"
+max_learning_rate: 0.0005
+min_learning_rate: 0.0
+muon_learning_rate: 0.1
+warmup_steps: 1000
+lr_decay_type: "cosine"
+use_sqrt: true
+lr_decay_iters_coef: 0.1
+weight_decay: 0.1
+beta1: 0.9
+beta2: 0.95
+eps: 0.00000001
+max_grad_norm: 1.0
+
+# Precision and optimization settings
+# `torch_compile` is slower than `use_liger_kernel`
+torch_compile: false
+mat_mul_precision: "highest"
+tf32: true
+bf16: true
+gradient_checkpointing: false
+use_liger_kernel: true
+static_graph: false
+
+# FSDP sharding settings
+fsdp_mixed_precision: true
+dp_shard: null
+full_shard: true
+cpu_offload: false
+explicit_prefetching: true
+
+# Checkpoint settings
+resume_from_checkpoint: null
+checkpointing_steps: 5000
+begin_new_stage: false
+stage_name: "<pattern>-<dataset>"
+
+# Hub settings
+push_to_hub: false
+hub_token: null
+hub_model_id: null
+
+# Logging settings
+wandb_token: null
+wandb_id: "<pattern>-<dataset>"
+wandb_project: "Polyglot"
+wandb_desc: "Developing LLMs for low-resource languages."
+
+# Miscellaneous settings
+sanity_check: false
+sanity_check_num_samples: 500000

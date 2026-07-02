@@ -226,7 +226,7 @@ In terms of tokenization:
 - Model: ~50M-parameter Llama (hidden 512, 8 layers, 8 heads, ctx 4096), `config.json` per pattern with `vocab_size` matching the pattern's token range.
 - Text data: FineWeb-Edu, `sample/10BT` reduced to ~5.2B tokens, tokenized with `HuggingFaceTB/SmolLM2-135M`, packed to 4096-token blocks.
 
-| Hyperparameter  (670M)      | Pre-pre-training                     | Pre-training                                 |
+| Hyperparameter              | Pre-pre-training                     | Pre-training                                 |
 |-----------------------------|--------------------------------------|----------------------------------------------|
 | Effective batch size        | 32 samples (131K tokens)             | 32 samples (131K tokens)                     |
 | Sequence length             | 4096 tokens                          | 4096 tokens                                  |
@@ -502,3 +502,26 @@ We removed `palindrome`, `reverse`, `nested`, and `noisy_palindrome` from the co
 - At very short context lengths (16–32 tokens), the offset range collapses and the model *should* learn reflection — confirming it's reflection-at-length, not impossibility.
 - A bidirectional encoder (or a model with reflective relative-position biases) should learn these patterns — confirming this is an inductive-bias limit of *causal* attention, not the data.
 - Does the existence of these "S_T ~ 0 despite oracle << uniform" patterns suggest a useful diagnostic: patterns where oracle loss and achieved loss diverge may help characterize the inductive biases of different architectures?
+
+### 2026-07-02: Revised hyperparameters — lower LR and a real batch-size ramp, informed by prior work
+
+**Context.** Comparing our initial hyperparameters against the recipe used in one of the [reference papers](https://arxiv.org/html/2603.10055v1) surfaced a likely confound: our learning rate (`1e-3` to `2e-3`, held constant across both phases, for the 650M and 50M models, respectively) is quite high (recommended by the [DeepSeek heuristic](https://arxiv.org/abs/2401.02954)). However, we should perhaps deal with this scenario as more of a fine-tuning problem than a pretraining problem, since the model has already learned a lot of structure from the pre-pretraining phase. Also, unlike the reference paper, we used a constant batch size across both phases, while they used a small batch size for pre-pretraining and a large batch size for pretraining. A high LR combined with the reset-non-attention-weights step (see "Experimental setup") could be overwriting the attention structure learned during pre-pretraining before its benefit can show up in the downstream loss. This is a plausible explanation for why no pattern beats the baselines. Moving on, we're adopting new LR scale and batch-size.
+
+Howefver, the paper's batch sizes (16 / 512 samples) were tuned for their 1024-token context. Copying the raw sample counts while using our 4096-token context (4x longer) silently inflates the effective batch size by 4x in the currency that actually governs gradient-noise scale: tokens, not samples (16 samples x 4096 = 65.5K tokens vs. their 16 x 1024 = 16.4K tokens; 512 x 4096 = 2.1M tokens vs. their 512 x 1024 = 524K tokens). We instead match the paper's *tokens-per-batch* and divide by our context length to get the equivalent sample count: 16,384 / 4096 = **4 samples** (pre-pretraining), 524,288 / 4096 = **128 samples** (pretraining).
+
+**What will change:**
+
+| Change                                 | Old value                 | New value                                |
+|----------------------------------------|---------------------------|------------------------------------------|
+| Pre-pretraining LR                     | 1e-3                      | **1e-4**                                 |
+| Pretraining LR                         | 1e-3                      | **5e-4**                                 |
+| Effective batch size (pre-pretraining) | 128 samples (524K tokens) | **4 samples (16.4K tokens)**             |
+| Effective batch size (pretraining)     | 128 samples (524K tokens) | **128 samples (524K tokens, unchanged)** |
+| Training steps (pre-pretraining)       | 2000 (~1B tokens)         | **60000 (~1B tokens)**                   |
+| Training steps (pretraining)           | 10000 (5.2B tokens)       | **10000 (~5.24B tokens, unchanged)**     |
+| Warmup steps (pre-pretraining)         | 200 (10%)                 | **6000 (10%)**                           |
+| Warmup steps (pretraining)             | 1000 (10%)                | **1000 (10%, unchanged)**                |
+| Weight decay                           | 0.1 / 0.1                 | **0.1 / 0.1 (unchanged)**                |
+| Gradient clipping                      | 1.0 / 1.0                 | **1.0 / 1.0 (unchanged)**                |
+
+Note: pretraining batch size/steps end up unchanged from the original table once tokens (not samples) are matched. Only the pre-pretraining phase actually needed to shrink (128 -> 4 samples, with a corresponding 30x increase in step count to hold the token budget constant). Only the LR values are a genuine departure from our original setup.
