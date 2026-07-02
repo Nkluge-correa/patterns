@@ -272,3 +272,21 @@ datasets:
       n_evaluated: 1000
       mean_gzip_complexity: 0.381949
     elapsed_seconds: 1.67
+  mixer:
+    n_shards: 1
+    n_samples: 2000
+    n_tokens: 8192000
+    vocab_size: 256
+    dtype: uint8
+    compresslevel: 9
+    mode: token
+    global:
+      original_bytes: 8192000
+      compressed_bytes: 2395088
+      gzip_complexity: 0.292369
+      compression_ratio: 3.420334
+      space_saving: 0.707631
+    per_sample:
+      n_evaluated: 1000
+      mean_gzip_complexity: 0.307299
+    elapsed_seconds: 2.99

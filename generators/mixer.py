@@ -12,6 +12,32 @@ from utils import PAD_ID, pad_to
 _MIXER_EXCLUDE = frozenset({"dyck", "shuffle_dyck", "random", "mixer", "nca", "identity"})
 _MIXER_MIN_SEGMENT_LEN = 12
 
+# Relative "hardness" weight per pattern name, used only to bias how the
+# leftover length budget (everything beyond each segment's guaranteed
+# _MIXER_MIN_SEGMENT_LEN floor) is distributed across segments. Patterns with
+# higher weight tend to receive a larger share of the context, which raises a
+# sample's resistance to compression (gzip complexity). Weights are derived
+# from each pattern's measured standalone gzip complexity.
+_MIXER_HARDNESS_WEIGHTS: dict[str, float] = {
+    "composite_mirror_repeat": 9,
+    "copy": 8,
+    "counting_anbncn": 2.5,
+    "counting_anbn": 2,
+    "permutation_cycle": 1,
+    "hierarchical": 1,
+    "periodic": 0.8,
+    "interleaving": 0.8,
+}
+
+
+def _mixer_copy(vocab: list[int], target_len: int, rng: random.Random) -> list[int]:
+    """Mixer-local variant of the "copy" pattern with a continuous duplication ratio."""
+    unique_fraction = rng.uniform(1 / 8, 1 / 3)
+    block_len = max(1, round(target_len * unique_fraction))
+    reps = max(1, -(-target_len // block_len))  # ceil division
+    block = [rng.choice(vocab) for _ in range(block_len)]
+    return (block * reps)[:target_len]
+
 
 @register(
     "mixer",
@@ -33,6 +59,10 @@ def gen_mixer(vocab: list[int], target_len: int, rng: random.Random) -> list[int
     candidates = [
         (name, fn) for name, (_desc, fn) in PATTERNS.items() if name not in _MIXER_EXCLUDE
     ]
+    # Swap in the mixer-local copy variant (wider reps range; see
+    # _mixer_copy docstring) so its heavy hardness weight doesn't collapse
+    # every sample into one of only two compressibility regimes.
+    candidates = [(name, _mixer_copy if name == "copy" else fn) for name, fn in candidates]
     rng.shuffle(candidates)
 
     if not candidates:
@@ -55,8 +85,9 @@ def gen_mixer(vocab: list[int], target_len: int, rng: random.Random) -> list[int
     min_segment_len = min(_MIXER_MIN_SEGMENT_LEN, content_len // n)
     lengths = [min_segment_len] * n
     extra = content_len - (min_segment_len * n)
+    weights = [_MIXER_HARDNESS_WEIGHTS.get(name, 1) for name, _fn in candidates]
     for _ in range(extra):
-        lengths[rng.randrange(n)] += 1
+        lengths[rng.choices(range(n), weights=weights)[0]] += 1
 
     result: list[int] = []
     for i, ((_name, fn), seg_len) in enumerate(zip(candidates, lengths, strict=False)):
