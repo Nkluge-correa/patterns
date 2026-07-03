@@ -1,0 +1,2 @@
+{"kwh": 0.511674, "loss": 2.303611, "stage_name": "copy", "status": "validation", "step": 6000, "val_time_s": 34.954111}
+{"kwh": 5.241808, "loss": 2.292966, "stage_name": "copy", "status": "validation", "step": 60000, "val_time_s": 34.616127}

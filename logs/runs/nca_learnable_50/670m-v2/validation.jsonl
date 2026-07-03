@@ -1,0 +1,2 @@
+{"kwh": 0.530977, "loss": 0.974633, "stage_name": "nca_learnable_50", "status": "validation", "step": 6000, "val_time_s": 34.969162}
+{"kwh": 5.273731, "loss": 0.96898, "stage_name": "nca_learnable_50", "status": "validation", "step": 60000, "val_time_s": 34.636633}
