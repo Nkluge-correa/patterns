@@ -82,8 +82,8 @@ hub_model_id: null
 # Logging settings
 wandb_token: null
 wandb_id: "<pattern>-<dataset>"
-wandb_project: "Polyglot"
-wandb_desc: "Developing LLMs for low-resource languages."
+wandb_project: "Patterns"
+wandb_desc: "Patterns Are All you Need"
 
 # Miscellaneous settings
 sanity_check: false
