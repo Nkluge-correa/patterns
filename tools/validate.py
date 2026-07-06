@@ -241,12 +241,15 @@ def oracle_entropy_dyck1(samples, L):
 #
 # Huge collision-free symbol pool: range objects cost O(1) memory and support
 # rng.choice / rng.sample / len / indexing, so generators run unchanged. ID 0
-# (PAD_ID) is excluded so pad never collides with content. mixer materialises a
-# per-segment vocab (list comprehension), so it gets a smaller -- still large --
-# concrete list to keep memory and time bounded.
+# (PAD_ID) is excluded so pad never collides with content. mixer reuses the
+# same huge range: a typical 4096-token mixer sample draws ~500-800 free
+# values (its "hard" segments like copy / composite_mirror_repeat have large
+# block lengths), and by the birthday bound a merely-large-but-bounded pool
+# (e.g. 2**18) still yields close to 1 accidental collision per sample on
+# average -- nowhere near collision-free. range(1, 1 << 30) keeps collision
+# probability negligible for mixer too, at no extra memory cost.
 # --------------------------------------------------------------------------- #
 _HUGE_VOCAB = range(1, 1 << 30)
-_MIXER_VOCAB = list(range(1, (1 << 18) + 1))
 
 
 def _pad_fraction(sample):
@@ -254,7 +257,7 @@ def _pad_fraction(sample):
     return sum(x == PAD_ID for x in sample) / len(sample)
 
 
-def free_draw_floor(name, fn, L, n_samples, vocab_size, seed=0):
+def free_draw_floor(fn, L, n_samples, vocab_size, seed=0):
     """EXACT structural floor (nats): (#free draws / #content) * ln(V).
 
     Re-runs the generator on a collision-free vocabulary so a repeated value can
@@ -263,11 +266,10 @@ def free_draw_floor(name, fn, L, n_samples, vocab_size, seed=0):
     worth 0; pad tokens are masked out.
     """
     lnV = math.log(vocab_size)
-    content = _MIXER_VOCAB if name == "mixer" else _HUGE_VOCAB
     rng = random.Random(seed)
     total_free = total_content = 0
     for _ in range(n_samples):
-        sample = fn(content, L, rng)
+        sample = fn(_HUGE_VOCAB, L, rng)
         seen = set()
         for x in sample:
             if x == PAD_ID:
@@ -343,6 +345,30 @@ def _pad_only_in_tail(sample):
     return True
 
 
+def _mixer_pad_valid(sample):
+    """True iff PAD_ID appears only as lone-token segment separators and/or
+    the final contiguous tail block.
+
+    Unlike every other pattern, `mixer` deliberately emits PAD_ID *inside*
+    the body as a single-token separator between consecutive segments (see
+    generators/mixer.py); `_pad_only_in_tail` would misreport that by-design
+    behaviour as a structural bug, so mixer gets its own, looser invariant.
+    """
+    n = len(sample)
+    i = 0
+    while i < n:
+        if sample[i] != PAD_ID:
+            i += 1
+            continue
+        j = i
+        while j < n and sample[j] == PAD_ID:
+            j += 1
+        if j < n and j - i != 1:  # interior run must be a lone separator
+            return False
+        i = j
+    return True
+
+
 def collect_simple_pattern_data(vocab, L, n_samples, seed=0):
     """Collect learnability metrics for every simple structural/counting/baseline pattern.
 
@@ -357,6 +383,9 @@ def collect_simple_pattern_data(vocab, L, n_samples, seed=0):
         _desc, fn = PATTERNS[name]
         # Production-vocab samples: used for pad%, gzip, unigram and the
         # pad-only-in-tail structural check (the data exactly as written).
+        # mixer deliberately uses PAD_ID as an in-body segment separator too,
+        # so it gets the looser `_mixer_pad_valid` invariant instead.
+        pad_check = _mixer_pad_valid if name == "mixer" else _pad_only_in_tail
         rng = random.Random(seed)
         pad_fracs = []
         gzips = []
@@ -372,7 +401,7 @@ def collect_simple_pattern_data(vocab, L, n_samples, seed=0):
             )
             pad_fracs.append(_pad_fraction(sample))
             gzips.append(gzip_complexity(sample))
-            pad_ok = pad_ok and _pad_only_in_tail(sample)
+            pad_ok = pad_ok and pad_check(sample)
             all_samples.append(sample)
         unigram = empirical_unigram_entropy(all_samples)
         # Oracle (floor): `random` is iid uniform (exact ln(V)); counting_* use
@@ -389,7 +418,7 @@ def collect_simple_pattern_data(vocab, L, n_samples, seed=0):
             oracle = oracle_entropy_counting(all_samples, L, k=3, vocab_size=V)
             loose = False
         else:
-            oracle = free_draw_floor(name, fn, L, n_samples, V, seed=seed)
+            oracle = free_draw_floor(fn, L, n_samples, V, seed=seed)
             loose = name in _LOOSE_FLOOR_PATTERNS
         results.append(
             {

@@ -20,7 +20,7 @@
   random                            5.5452    5.5452    1.01        1.00 x
   identity                          0.0014    5.5452    0.01     4096.00 x
   composite_mirror_repeat           1.3863    5.5452    0.52        4.00 x
-  mixer 🔮 ⚠️                       0.4855    5.5452    0.17       11.42 x
+  mixer 🔮                          0.9114    5.5452    0.31        6.08 x
   nca (learnable_50)                1.0052    2.0794    0.30        2.07 x
 
   Oracle Loss    Best possible cross-entropy — a perfect model that learned the rule.
@@ -38,12 +38,12 @@
   🔹 Structural Validity
   Pattern                     Check                                    Result
   ───────────────────────────────────────────────────────────────────────────
-  shuffle_dyck (k=3)          exact length == L                  10000/10000 ✅
-  shuffle_dyck (k=3)          valid shuffle-Dyck (balanced)      10000/10000 ✅
+  shuffle_dyck (k=3)          exact length == L                  10000/10000  ✅
+  shuffle_dyck (k=3)          valid shuffle-Dyck (balanced)      10000/10000  ✅
   shuffle_dyck (k=3)          valid NESTED Dyck-k (stack-matched) 10000/10000 ✅
-  dyck-1                      exact length == L                  10000/10000 ✅
-  dyck-1                      valid Dyck-1 (balanced)            10000/10000 ✅
-  nca                         frame open/close/cell malformed       0 issues ✅
+  dyck-1                      exact length == L                  10000/10000  ✅
+  dyck-1                      valid Dyck-1 (balanced)            10000/10000  ✅
+  nca                         frame open/close/cell malformed       0 issues  ✅
 
   🔹 Pad Token Sanity  (pad ID 0 should only appear as a trailing suffix)
   Pattern                     Pad Fraction       Status
@@ -60,8 +60,8 @@
   random                             0%             ✅ OK
   identity                           0%             ✅ OK
   composite_mirror_repeat            0%             ✅ OK
-  mixer                              0%     ⚠️  PAD IN BODY
-  nca                              400 tail            ✅ OK
+  mixer                              0%             ✅ OK
+  nca                              400 tail         ✅ OK
 
   🔹 Empirical Unigram Loss  (naive token-frequency baseline for comparison)
   Pattern                        Unigram     Oracle     Excess
@@ -78,7 +78,7 @@
   random                          5.5411     5.5452    -0.0041
   identity                        4.7662     0.0014     4.7648
   composite_mirror_repeat         5.5407     1.3863     4.1544
-  mixer                           5.5225     0.4855     5.0370
+  mixer                           5.5394     0.9114     4.6280
 
   🔹 NCA Regime Ladder  (cell oracle vs uniform baseline ln(d)=2.0794)
   Regime            Temp   Bias     Oracle   % of ln(d)      Verdict
