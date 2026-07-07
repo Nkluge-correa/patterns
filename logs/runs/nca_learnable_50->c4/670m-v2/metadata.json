@@ -4,7 +4,7 @@
     "nca_learnable_50->c4": {
       "resume_count": 0,
       "initialization_notes": [
-        "Initializing model from base model: /home/nklugeco/checkpoints/nca_learnable_50 for continual pretraining/fine-tuning.",
+        "Initializing model from base model: /lustre/mlnvme/data/nklugeco_hpc-patterns/models/nca_learnable_50/reset-model for continual pretraining/fine-tuning.",
         "Resized token embeddings from 11 to 49,152 to cover the tokenizer vocabulary.",
         "Applied Liger kernels to the model.",
         "Number of trainable parameters: 670,127,616",
@@ -18,9 +18,9 @@
       ],
       "run_info": {
         "Training stage": "nca_learnable_50->c4",
-        "Run ID": "212282",
-        "Hardware": "A100",
-        "World size (total GPUs)": "2",
+        "Run ID": "26443242",
+        "Hardware": "A40",
+        "World size (total GPUs)": "4",
         "Precision": "bfloat16"
       },
       "Dataset Configuration": {
@@ -33,7 +33,7 @@
       },
       "Batch Configuration": {
         "Num Epochs": "1",
-        "Micro batch size per device": "16",
+        "Micro batch size per device": "8",
         "Gradient accumulation steps": "4",
         "Total batch size (samples)": "128",
         "Total batch size (tokens)": "524,288",
@@ -49,6 +49,7 @@
           "attention_bias": false,
           "attention_dropout": 0.0,
           "bos_token_id": 0,
+          "dtype": "bfloat16",
           "eos_token_id": 0,
           "head_dim": 96,
           "hidden_act": "silu",
@@ -66,13 +67,16 @@
           "pretraining_tp": 1,
           "rms_norm_eps": 1e-06,
           "rope_interleaved": false,
+          "rope_parameters": {
+            "rope_theta": 50000.0,
+            "rope_type": "default"
+          },
           "rope_scaling": null,
-          "rope_theta": 50000.0,
+          "rope_theta": 10000.0,
           "tie_word_embeddings": true,
-          "torch_dtype": "bfloat16",
-          "transformers_version": "4.53.2",
+          "transformers_version": "4.57.6",
           "use_cache": false,
-          "vocab_size": 49152
+          "vocab_size": 11
         },
         "Attention implementation": "flash_attention_2",
         "Gradient checkpointing": "False",
@@ -96,9 +100,9 @@
     }
   },
   "emissions": {
-    "duration_hours": 20.8234,
-    "energy_consumed_kwh": 22.873449,
-    "co2_emissions_kgco2eq": 8.71364,
+    "duration_hours": 23.3102,
+    "energy_consumed_kwh": 30.400559,
+    "co2_emissions_kgco2eq": 11.581093,
     "num_nodes": 1
   }
 }
