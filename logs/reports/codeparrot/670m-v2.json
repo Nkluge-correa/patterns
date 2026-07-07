@@ -1,0 +1,22 @@
+{
+  "run_name": "codeparrot",
+  "model_params": 670000000,
+  "total_train_tokens": 5200000000,
+  "total_train_flops": 2.0904e+19,
+  "initial_train_loss_nats": 11.082317,
+  "final_train_loss_nats": 0.898077,
+  "final_val_loss_nats": 0.832787,
+  "S_nats_total": 2085267228.2,
+  "S_bits": 3008404689.0524144,
+  "S_bits_per_train_token": 0.5785393632793104,
+  "H_bits_per_test_token": 1.2014576750167973,
+  "total_info_bits_per_token": 1.779997038296108,
+  "structural_fraction": 0.3250226550000971,
+  "gzip_complexity": 0.226642,
+  "oracle_loss_nats": null,
+  "language_entropy_nats": 0.5,
+  "approximation_used": false,
+  "warnings": [
+    "2005 steps have loss BELOW final training loss (0.8981); the model may still be improving."
+  ]
+}
