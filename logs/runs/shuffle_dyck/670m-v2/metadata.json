@@ -1,0 +1,73 @@
+{
+  "resume_count": 0,
+  "stages": {
+    "shuffle_dyck": {
+      "resume_count": 0,
+      "initialization_notes": [
+        "No tokenizer specified. Continuing without a tokenizer because training is configured from scratch.",
+        "Initializing model from `AutoConfig`.",
+        "Applied Liger kernels to the model.",
+        "Number of trainable parameters: 594,640,896",
+        "Shuffling enabled. Shuffling 11 dataset files.",
+        "Collate function will mask token IDs: [0]",
+        "Overriding the number of steps to 60000 as per the `max_steps` argument (check the YAML file if you are not sure).",
+        "Using learning rate decay type: cosine"
+      ],
+      "events": [
+        "Learning rate stage changed to: cosine_decay at step 6000 | shuffle_dyck."
+      ],
+      "run_info": {
+        "Training stage": "shuffle_dyck",
+        "Run ID": "175",
+        "Hardware": "H200",
+        "World size (total GPUs)": "1",
+        "Precision": "bfloat16"
+      },
+      "Dataset Configuration": {
+        "Num train examples": "250,000",
+        "Num validation examples": "1,024",
+        "Length of train dataloader": "62,500",
+        "Max position embeddings (seq length)": "4,096",
+        "Shuffle dataset": "True",
+        "Masked token IDs": "[0]"
+      },
+      "Batch Configuration": {
+        "Num Epochs": "1",
+        "Micro batch size per device": "4",
+        "Gradient accumulation steps": "1",
+        "Total batch size (samples)": "4",
+        "Total batch size (tokens)": "16,384",
+        "Total optimization steps": "60,000",
+        "Steps per epoch": "62,500",
+        "Checkpointing every": "100000 steps"
+      },
+      "Model Architecture": {
+        "Model config": "/cephfs/user/nklugeco/config.json",
+        "Attention implementation": "flash_attention_2",
+        "Gradient checkpointing": "False",
+        "Liger kernel": "True",
+        "Torch compile": "False",
+        "Trainable parameters": "594,640,896"
+      },
+      "Optimizer Configuration (AdamW)": {
+        "Optimizer type": "adamw",
+        "Max learning rate (Adam)": "0.0001",
+        "Min learning rate": "0.0",
+        "LR scheduler type": "COSINE",
+        "LR decay iterations coef": "0.1",
+        "Warmup steps": "6000",
+        "Weight decay": "0.1",
+        "Beta1": "0.9",
+        "Beta2": "0.95",
+        "Epsilon": "1e-08",
+        "Max grad norm": "1.0"
+      }
+    }
+  },
+  "emissions": {
+    "duration_hours": 4.6111,
+    "energy_consumed_kwh": 2.233848,
+    "co2_emissions_kgco2eq": 0.850984,
+    "num_nodes": 1
+  }
+}
