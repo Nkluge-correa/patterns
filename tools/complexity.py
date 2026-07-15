@@ -53,7 +53,6 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 import numpy as np
 
@@ -74,19 +73,18 @@ def _open_jsonl(path: Path):
     """Open a .jsonl or .jsonl.gz file for line-by-line reading."""
     if path.suffix == ".gz":
         return gzip_mod.open(path, "rt", encoding="utf-8")
-    return open(path, "r", encoding="utf-8")
+    return open(path, encoding="utf-8")
 
 
-def _collect_jsonl(directory: Path) -> List[Path]:
+def _collect_jsonl(directory: Path) -> list[Path]:
     return sorted(
-        p for p in directory.iterdir()
-        if p.is_file() and (
-            p.name.endswith(".jsonl") or p.name.endswith(".jsonl.gz")
-        )
+        p
+        for p in directory.iterdir()
+        if p.is_file() and (p.name.endswith(".jsonl") or p.name.endswith(".jsonl.gz"))
     )
 
 
-def _iter_records(paths: List[Path]):
+def _iter_records(paths: list[Path]):
     """Yield parsed record dicts from a list of JSONL files."""
     for path in paths:
         with _open_jsonl(path) as f:
@@ -96,7 +94,7 @@ def _iter_records(paths: List[Path]):
                     yield json.loads(line)
 
 
-def _sniff_vocab_size(paths: List[Path], text_column: Optional[str] = None) -> Optional[int]:
+def _sniff_vocab_size(paths: list[Path], text_column: str | None = None) -> int | None:
     """Return vocab_size from the first record that carries metadata.
 
     In text mode returns 256 (the UTF-8 byte alphabet).
@@ -110,7 +108,21 @@ def _sniff_vocab_size(paths: List[Path], text_column: Optional[str] = None) -> O
     return None
 
 
-def _get_bytes(record: dict, dtype, text_column: Optional[str]) -> bytes:
+def _observed_vocab_size(paths: list[Path]) -> int:
+    """Return the smallest ID-space size that losslessly stores all tokens."""
+    max_token = -1
+    for record in _iter_records(paths):
+        tokens = record["input_ids"]
+        if tokens:
+            max_token = max(max_token, max(tokens))
+    if max_token < 0:
+        raise SystemExit("Cannot infer vocab size from an empty token dataset.")
+    if max_token < 0:
+        raise SystemExit("Token IDs must be non-negative integers.")
+    return max_token + 1
+
+
+def _get_bytes(record: dict, dtype, text_column: str | None) -> bytes:
     """Extract the raw byte representation for a single record.
 
     In token mode (*text_column* is None) reads `input_ids`, casts to
@@ -125,12 +137,12 @@ def _get_bytes(record: dict, dtype, text_column: Optional[str]) -> bytes:
 
 # Metric computation
 def global_gzip_complexity(
-    paths: List[Path],
+    paths: list[Path],
     dtype,
     batch_size: int = 10_000,
     compresslevel: int = 9,
-    text_column: Optional[str] = None,
-) -> Tuple[int, int, int]:
+    text_column: str | None = None,
+) -> tuple[int, int, int]:
     """Stream all token/text byte arrays into a temporary gzip file.
 
     Returns (n_samples, total_uncompressed_bytes, total_compressed_bytes).
@@ -143,20 +155,20 @@ def global_gzip_complexity(
         tmp_path = tmp.name
 
     try:
-        with open(tmp_path, "wb") as raw_out:
-            with gzip_mod.GzipFile(
-                fileobj=raw_out, mode="wb", compresslevel=compresslevel
-            ) as gz:
-                for i, record in enumerate(_iter_records(paths), 1):
-                    b = _get_bytes(record, dtype, text_column)
-                    total_uncompressed += len(b)
-                    n_samples += 1
-                    chunk.extend(b)
-                    if i % batch_size == 0:
-                        gz.write(chunk)
-                        chunk.clear()
-                if chunk:
+        with (
+            open(tmp_path, "wb") as raw_out,
+            gzip_mod.GzipFile(fileobj=raw_out, mode="wb", compresslevel=compresslevel) as gz,
+        ):
+            for i, record in enumerate(_iter_records(paths), 1):
+                b = _get_bytes(record, dtype, text_column)
+                total_uncompressed += len(b)
+                n_samples += 1
+                chunk.extend(b)
+                if i % batch_size == 0:
                     gz.write(chunk)
+                    chunk.clear()
+            if chunk:
+                gz.write(chunk)
 
         total_compressed = os.path.getsize(tmp_path)
     finally:
@@ -167,18 +179,18 @@ def global_gzip_complexity(
 
 
 def per_sample_complexity(
-    paths: List[Path],
+    paths: list[Path],
     dtype,
-    max_samples: Optional[int],
+    max_samples: int | None,
     compresslevel: int = 9,
-    text_column: Optional[str] = None,
-) -> Tuple[List[float], int]:
+    text_column: str | None = None,
+) -> tuple[list[float], int]:
     """Compute per-sample gzip complexity for up to max_samples records.
 
     Returns (complexities, n_evaluated) where complexities is a list of
     (compressed_bytes / original_bytes) values, one per sample.
     """
-    complexities: List[float] = []
+    complexities: list[float] = []
     for record in _iter_records(paths):
         raw = _get_bytes(record, dtype, text_column)
         compressed = gzip_mod.compress(raw, compresslevel=compresslevel)
@@ -189,9 +201,7 @@ def per_sample_complexity(
     return complexities, len(complexities)
 
 
-def _detect_mode(
-    files: List[Path], text_column: Optional[str]
-) -> Tuple[Optional[str], bool]:
+def _detect_mode(files: list[Path], text_column: str | None) -> tuple[str | None, bool]:
     """Determine operating mode and effective text column.
 
     Returns (effective_text_column, is_text_mode).
@@ -220,13 +230,13 @@ def _detect_mode(
 # Per-directory analysis
 def analyze_directory(
     directory: Path,
-    vocab_size: Optional[int],
-    per_sample_limit: Optional[int],
+    vocab_size: int | None,
+    per_sample_limit: int | None,
     compresslevel: int,
     verbose: bool,
     store_sample_complexities: bool = False,
-    text_column: Optional[str] = None,
-) -> Optional[dict]:
+    text_column: str | None = None,
+) -> dict | None:
     files = _collect_jsonl(directory)
     if not files:
         if verbose:
@@ -250,29 +260,46 @@ def analyze_directory(
                 f"vocab_size=256, utf-8 bytes)"
             )
     else:
-        effective_vocab = vocab_size or _sniff_vocab_size(files)
-        if effective_vocab is None:
+        metadata_vocab = _sniff_vocab_size(files)
+        observed_vocab = _observed_vocab_size(files)
+        effective_vocab = vocab_size or metadata_vocab or observed_vocab
+        if effective_vocab < observed_vocab:
+            raise SystemExit(
+                f"--vocab-size {effective_vocab} cannot represent token ID "
+                f"{observed_vocab - 1} in {directory}."
+            )
+        dtype = _dtype_for_vocab(effective_vocab)
+        canonical_dtype = _dtype_for_vocab(observed_vocab)
+        dtype_name = np.dtype(dtype).name
+        if vocab_size is not None and dtype != canonical_dtype:
             print(
-                f"  WARNING: could not determine vocab_size for {directory}; "
-                "defaulting to uint32.",
+                f"  WARNING: --vocab-size {vocab_size} stores {directory.name} "
+                f"as {dtype_name}, but its observed IDs 0..{observed_vocab - 1} "
+                f"fit in {np.dtype(canonical_dtype).name}. The added zero bytes "
+                "change gzip complexity without changing the token sequence; "
+                "omit --vocab-size for the canonical score.",
                 file=sys.stderr,
             )
-            effective_vocab = 2 ** 32
-        dtype = _dtype_for_vocab(effective_vocab)
-        dtype_name = np.dtype(dtype).name
         if verbose:
             print(
                 f"    mode                : token "
-                f"(vocab_size={effective_vocab}, dtype={dtype_name})"
+                f"(vocab_size={effective_vocab}, observed={observed_vocab}, "
+                f"dtype={dtype_name})"
             )
 
     t0 = time.time()
 
     n_samples, n_uncompressed, n_compressed = global_gzip_complexity(
-        files, dtype, compresslevel=compresslevel, text_column=effective_text_column,
+        files,
+        dtype,
+        compresslevel=compresslevel,
+        text_column=effective_text_column,
     )
     sample_complexities, n_evaluated = per_sample_complexity(
-        files, dtype, max_samples=per_sample_limit, compresslevel=compresslevel,
+        files,
+        dtype,
+        max_samples=per_sample_limit,
+        compresslevel=compresslevel,
         text_column=effective_text_column,
     )
     mean_per_sample = float(np.mean(sample_complexities)) if sample_complexities else float("nan")
@@ -314,30 +341,32 @@ def analyze_directory(
             f"(ratio {g['compression_ratio']:.2f}x, "
             f"saving {g['space_saving'] * 100:.1f}%)"
         )
-        print(
-            f"    per-sample (n={n_evaluated:,}): "
-            f"{ps['mean_gzip_complexity']:.4f}"
-        )
+        print(f"    per-sample (n={n_evaluated:,}): {ps['mean_gzip_complexity']:.4f}")
         print(f"    elapsed             : {elapsed:.1f}s")
 
     return result
 
 
 # YAML output
-def write_metadata(
-    output_dir: Path, results: List[dict], timestamp: str
-) -> Path:
+def write_metadata(output_dir: Path, results: list[dict], timestamp: str) -> Path:
     out_path = output_dir / METADATA_FILENAME
     with open(out_path, "w", encoding="utf-8") as f:
-        f.write(f"# gzip complexity metadata\n")
+        f.write("# gzip complexity metadata\n")
         f.write(f"# generated: {timestamp}\n")
         f.write(f"n_datasets: {len(results)}\n")
         f.write("datasets:\n")
         for r in results:
             name = Path(r["directory"]).name
             f.write(f"  {name}:\n")
-            for k in ("n_shards", "n_samples", "n_tokens", "vocab_size",
-                      "dtype", "compresslevel", "mode"):
+            for k in (
+                "n_shards",
+                "n_samples",
+                "n_tokens",
+                "vocab_size",
+                "dtype",
+                "compresslevel",
+                "mode",
+            ):
                 f.write(f"    {k}: {r[k]}\n")
             if r.get("text_column") is not None:
                 f.write(f"    text_column: {r['text_column']}\n")
@@ -356,21 +385,20 @@ def write_metadata(
 
 
 # Histogram plot
-def _adaptive_bins(vals: List[float], cap: int = 60) -> int:
+def _adaptive_bins(vals: list[float], cap: int = 60) -> int:
     """Choose bin count using numpy's 'auto' heuristic, capped at *cap*."""
     edges = np.histogram_bin_edges(vals, bins="auto")
     return min(len(edges) - 1, cap)
 
 
-def plot_histogram(r: dict, output_path: Path) -> Optional[Path]:
+def plot_histogram(r: dict, output_path: Path) -> Path | None:
     """Plot a histogram for a single dataset result and save to *output_path*."""
     import matplotlib.pyplot as plt
 
     vals = r.get("sample_complexities")
     if not vals:
         print(
-            f"WARNING: no per-sample data to plot for "
-            f"{Path(r['directory']).name}.",
+            f"WARNING: no per-sample data to plot for {Path(r['directory']).name}.",
             file=sys.stderr,
         )
         return None
@@ -381,8 +409,7 @@ def plot_histogram(r: dict, output_path: Path) -> Optional[Path]:
 
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.hist(vals, bins=n_bins, color="steelblue", edgecolor="white", linewidth=0.4)
-    ax.axvline(mean, color="crimson", linewidth=1.5, linestyle="--",
-               label=f"mean={mean:.3f}")
+    ax.axvline(mean, color="crimson", linewidth=1.5, linestyle="--", label=f"mean={mean:.3f}")
     ax.set_title(name, fontsize=12, fontweight="bold")
     ax.set_xlabel(r"complexity  $=$ compressed / original", fontsize=9)
     ax.set_ylabel("samples", fontsize=9)
@@ -403,7 +430,6 @@ def plot_histogram(r: dict, output_path: Path) -> Optional[Path]:
 
 
 def main(args):
-
     if not (1 <= args.compresslevel <= 9):
         raise SystemExit("--compresslevel must be between 1 and 9.")
 
@@ -413,7 +439,7 @@ def main(args):
 
     # Resolve input paths: if a directory contains .jsonl files directly,
     # treat it as a single dataset; otherwise descend one level.
-    directories: List[Path] = []
+    directories: list[Path] = []
     for raw in args.paths:
         p = Path(raw).resolve()
         if not p.exists():
@@ -436,7 +462,7 @@ def main(args):
 
     print(f"Analyzing {len(directories)} dataset(s) ...")
 
-    all_results: List[dict] = []
+    all_results: list[dict] = []
     for d in directories:
         result = analyze_directory(
             d,
@@ -481,7 +507,6 @@ def main(args):
 
 
 if __name__ == "__main__":
-
     ap = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -491,15 +516,16 @@ if __name__ == "__main__":
         nargs="+",
         metavar="PATH",
         help="One or more dataset directories (or a root directory whose "
-             "subdirectories each contain .jsonl shards).",
+        "subdirectories each contain .jsonl shards).",
     )
     ap.add_argument(
         "--vocab-size",
         type=int,
         default=None,
         metavar="N",
-        help="Override vocab size used to select the integer dtype. "
-             "Auto-detected from record metadata when not set.",
+        help="Override vocab size used to select the integer dtype. Scores "
+        "from different dtypes are not comparable. When omitted, the "
+        "size is read from record metadata or inferred from observed IDs.",
     )
     ap.add_argument(
         "--per-sample-limit",
@@ -507,8 +533,8 @@ if __name__ == "__main__":
         default=1000,
         metavar="N",
         help="Max number of samples to evaluate for per-sample complexity "
-             "(default: 1000). Pass 0 to evaluate all samples (slow for "
-             "large datasets).",
+        "(default: 1000). Pass 0 to evaluate all samples (slow for "
+        "large datasets).",
     )
     ap.add_argument(
         "--compresslevel",
@@ -522,24 +548,24 @@ if __name__ == "__main__":
         default=None,
         metavar="DIR",
         help="Write the .complexity.yaml file to this directory instead of "
-             "the common parent of the analyzed directories.",
+        "the common parent of the analyzed directories.",
     )
     ap.add_argument(
         "--plot",
         action="store_true",
         help="Save a per-sample complexity histogram (PNG) next to the "
-             "metadata file. Requires matplotlib.",
+        "metadata file. Requires matplotlib.",
     )
     ap.add_argument(
         "--text-column",
         default=None,
         metavar="COLUMN",
         help="Operate on raw text from this JSONL column instead of "
-             "token IDs.  Text is UTF-8 encoded to a byte stream with "
-             "a fixed 256-symbol alphabet.  Required when the dataset "
-             "has no 'input_ids' column.  When provided alongside a "
-             "dataset that also has 'input_ids', the text column takes "
-             "precedence.",
+        "token IDs.  Text is UTF-8 encoded to a byte stream with "
+        "a fixed 256-symbol alphabet.  Required when the dataset "
+        "has no 'input_ids' column.  When provided alongside a "
+        "dataset that also has 'input_ids', the text column takes "
+        "precedence.",
     )
     ap.add_argument(
         "--quiet",

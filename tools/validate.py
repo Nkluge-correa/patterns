@@ -17,11 +17,13 @@ Usage:
     python tools/validate.py
 """
 
+import contextlib
 import gzip
 import math
 import os
 import random
 import sys
+from array import array
 from collections import Counter
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -49,7 +51,7 @@ _LOOSE_FLOOR_PATTERNS = frozenset({"mixer"})
 
 # Match the production configuration set in generator.py.
 generators.dyck._SHARED_IDS = True
-nca_mod._SHARED_RULE = True
+nca_mod._SHARED_RULE = nca_mod._REGIME != "paper"
 
 # --------------------------------------------------------------------------- #
 # The "simple" structural / counting / baseline patterns whose generative law
@@ -99,7 +101,7 @@ def is_valid_dyck1(seq, open_id=1, close_id=2):
     return depth == 0
 
 
-def is_valid_shuffle_dyck(seq, k=3):
+def is_valid_shuffle_dyck(seq, k=64):
     """True iff `seq` is a valid *shuffle* Dyck-k word.
 
     Each type must independently be balanced and never go negative, but
@@ -121,7 +123,7 @@ def is_valid_shuffle_dyck(seq, k=3):
     return all(c == 0 for c in counts)
 
 
-def is_valid_nested_dyck(seq, k=3):
+def is_valid_nested_dyck(seq, k=64):
     """True iff `seq` is a *nested* (stack-matched) Dyck-k word.
 
     This is the classic hierarchical Dyck-k: a closer must match the type
@@ -160,7 +162,13 @@ def empirical_unigram_entropy(samples):
 # the irreducible loss of a model that has perfectly learned the rule. If this
 # is well below ln(alphabet), the task carries real learnable signal.
 # --------------------------------------------------------------------------- #
-def oracle_entropy_shuffle(samples, L, k=3, p_open=0.5, max_depth=4):
+def oracle_entropy_shuffle(samples, L, k=64, p_open=0.5, max_depth=None):
+    """Oracle next-token loss for the nested Dyck-k generator.
+
+    Mirrors gen_shuffle_dyck's decision process: with `max_depth=None`
+    (production default) the depth is only capped by the remaining budget,
+    yielding a harmonic depth distribution at p_open=0.5.
+    """
     openers = set(range(1, k + 1))
     nll, n = 0.0, 0
     for s in samples:
@@ -174,7 +182,7 @@ def oracle_entropy_shuffle(samples, L, k=3, p_open=0.5, max_depth=4):
                 p = 1.0 / k  # uniform over k openers
                 stack.append(t - 1)
             else:
-                can_open = budget >= depth + 2 and depth < max_depth
+                can_open = budget >= depth + 2 and (max_depth is None or depth < max_depth)
                 if t in openers:
                     p = (p_open / k) if can_open else 0.0
                     stack.append(t - 1)
@@ -332,6 +340,12 @@ def gzip_complexity(sample):
     raw = bytes(t & 0xFF for t in sample)  # 1 byte/token (vocab<=256)
     comp = gzip.compress(raw, compresslevel=9)
     return len(comp) / len(raw)
+
+
+def nca_gzip_complexity(sample):
+    """NCA gzip ratio using the production uint16 token representation."""
+    raw = array("H", sample).tobytes()
+    return len(gzip.compress(raw, compresslevel=9)) / len(raw)
 
 
 def _pad_only_in_tail(sample):
@@ -566,7 +580,8 @@ def _print_diagnostics(dyck_rows, simple_rows, nca_blob):
     # NCA regime ladder
     if nca_blob and nca_blob.get("regimes"):
         print(
-            f"\n  🔹 NCA Regime Ladder  (cell oracle vs uniform baseline ln(d)={nca_blob['ln_d']:.4f})"
+            f"\n  🔹 NCA Regime Ladder  (per-CELL oracle vs uniform baseline ln(d)={nca_blob['ln_d']:.4f}; "
+            "per-token values are 4x at 2x2 patches)"
         )
         print(
             f"  {'Regime':<15} {'Temp':>6} {'Bias':>6} {'Oracle':>10} {'% of ln(d)':>12} {'Verdict':>12}"
@@ -576,7 +591,7 @@ def _print_diagnostics(dyck_rows, simple_rows, nca_blob):
             verdict = "NO signal" if reg["pct"] > 90 else "learnable ✅"
             active = " ← active" if reg["active"] else ""
             print(
-                f"  {reg['name']:<15} {reg['temp']:>6.1f} {reg['bias']:>6.1f} "
+                f"  {reg['name']:<15} {reg['temp']:>6.3f} {reg['bias']:>6.1f} "
                 f"{reg['oracle']:>10.4f} {reg['pct']:>11.1f}% {verdict:>12}{active}"
             )
 
@@ -611,33 +626,41 @@ def validate_nca_structure(seq, frame_size, open_tok, close_tok, state_ids):
     return issues, tail
 
 
-def nca_oracle_entropy(n_roll=40, frames=15, seed0=0):
-    """Mean per-cell conditional entropy (nats) of the NCA transition law.
+def nca_oracle_entropy(n_roll=20, frames=10, seed0=0):
+    """Mean per-CELL conditional entropy (nats) of the NCA transition law.
 
-    This is the best achievable cross-entropy on the *cell* tokens for a
+    This is the best achievable cross-entropy on the underlying *cells* for a
     model that has perfectly learned the (shared) rule and tracks the grid.
     Replays the exact production rollout (shared rule, burn-in, temperature,
     identity bias). Compare against ln(d_state): values near that baseline
     mean the automaton is essentially a uniform RNG (no learnable signal).
+
+    NOTE: production tokens are 2x2 cell PATCHES; because the 4 cells of a
+    patch are conditionally independent given the previous grid, the oracle
+    loss per patch TOKEN is `_PATCH_CELLS * H_cell` against a uniform patch
+    baseline of `_PATCH_CELLS * ln(d_state)` -- the percentage is unchanged.
     """
     d = nca_mod._D_STATE
     grid = nca_mod._GRID_SIZE
     device = torch.device("cpu")
-    sg = torch.Generator(device="cpu")
-    sg.manual_seed(nca_mod._SHARED_RULE_SEED)
-    net = nca_mod._make_rule(d, sg, device)
+    net = None
+    if nca_mod._SHARED_RULE:
+        sg = torch.Generator(device="cpu")
+        sg.manual_seed(nca_mod._SHARED_RULE_SEED)
+        net = nca_mod._make_rule(d, sg, device)
 
     tot, cnt = 0.0, 0
     for r in range(n_roll):
         g = torch.Generator(device="cpu")
         g.manual_seed(seed0 + r)
+        rollout_net = net if net is not None else nca_mod._make_rule(d, g, device)
         p0 = torch.softmax(torch.empty(d).normal_(generator=g), dim=-1)
         state = torch.multinomial(p0, grid * grid, replacement=True, generator=g).reshape(
             grid, grid
         )
         for t in range(nca_mod._BURN_IN_STEPS + frames):
             oh = F.one_hot(state, d).float()
-            logits = (net(oh) + oh * nca_mod._IDENTITY_BIAS) / nca_mod._TEMPERATURE
+            logits = (rollout_net(oh) + oh * nca_mod._IDENTITY_BIAS) / nca_mod._TEMPERATURE
             probs = torch.softmax(logits, dim=-1).reshape(-1, d)
             if t >= nca_mod._BURN_IN_STEPS:
                 H = -(probs * torch.log(probs.clamp_min(1e-12))).sum(-1)
@@ -660,7 +683,8 @@ class _Tee:
 
     def flush(self):
         self.stream.flush()
-        self.fh.flush()
+        with contextlib.suppress(ValueError):
+            self.fh.flush()  # file handle already closed during exception cleanup
 
 
 def main():
@@ -672,50 +696,53 @@ def main():
 
         rng = random.Random(0)
         L = 4096
-        N = 10000
+        N = 2000  # samples for shuffle_dyck / dyck-1 validity + empirical stats
 
         # ── shuffle_dyck ─────────────────────────────────────────────
-        vocab = get_vocab(7)
-        sd = [gen_shuffle_dyck(vocab, L, rng) for _ in range(N)]
-        sd_bodies = [_strip_pad(s) for s in sd]
-        sd_oracle = oracle_entropy_shuffle(sd, L)
-        sd_gzip = _mean([gzip_complexity(s) for s in sd])
-        sd_pad_ok = all(_pad_only_in_tail(s) for s in sd)
+        dyck_rows = []
+        for k_sd in [8, 16, 32, 64]:
+            rng_sd = random.Random(1000 + k_sd)  # deterministic per k
+            vocab = get_vocab(2 * k_sd + 1)
+            sd = [gen_shuffle_dyck(vocab, L, rng_sd, k=k_sd) for _ in range(N)]
+            sd_bodies = [_strip_pad(s) for s in sd]
+            sd_oracle = oracle_entropy_shuffle(sd, L, k=k_sd)
+            sd_gzip = _mean([gzip_complexity(s) for s in sd])
+            sd_pad_ok = all(_pad_only_in_tail(s) for s in sd)
 
-        dyck_rows = [
-            {
-                "name": "shuffle_dyck (k=3)",
-                "family": "dyck",
-                "oracle_loss": sd_oracle,
-                "random_baseline": math.log(6),
-                "gzip_ratio": sd_gzip,
-                "unigram": empirical_unigram_entropy(sd),
-                "pad_frac": _mean([_pad_fraction(s) for s in sd]),
-                "pad_ok": sd_pad_ok,
-                "loose_bound": False,
-                "warnings": [],
-                "validity_checks": [
-                    {
-                        "label": "exact length == L",
-                        "count": sum(len(s) == L for s in sd),
-                        "total": N,
-                        "ok": all(len(s) == L for s in sd),
-                    },
-                    {
-                        "label": "valid shuffle-Dyck (balanced)",
-                        "count": sum(is_valid_shuffle_dyck(b) for b in sd_bodies),
-                        "total": N,
-                        "ok": all(is_valid_shuffle_dyck(b) for b in sd_bodies),
-                    },
-                    {
-                        "label": "valid NESTED Dyck-k (stack-matched)",
-                        "count": sum(is_valid_nested_dyck(b) for b in sd_bodies),
-                        "total": N,
-                        "ok": all(is_valid_nested_dyck(b) for b in sd_bodies),
-                    },
-                ],
-            }
-        ]
+            dyck_rows.append(
+                {
+                    "name": f"shuffle_dyck (k={k_sd})",
+                    "family": "dyck",
+                    "oracle_loss": sd_oracle,
+                    "random_baseline": math.log(2 * k_sd),
+                    "gzip_ratio": sd_gzip,
+                    "unigram": empirical_unigram_entropy(sd),
+                    "pad_frac": _mean([_pad_fraction(s) for s in sd]),
+                    "pad_ok": sd_pad_ok,
+                    "loose_bound": False,
+                    "warnings": [],
+                    "validity_checks": [
+                        {
+                            "label": "exact length == L",
+                            "count": sum(len(s) == L for s in sd),
+                            "total": N,
+                            "ok": all(len(s) == L for s in sd),
+                        },
+                        {
+                            "label": "valid shuffle-Dyck (balanced)",
+                            "count": sum(is_valid_shuffle_dyck(b, k=k_sd) for b in sd_bodies),
+                            "total": N,
+                            "ok": all(is_valid_shuffle_dyck(b, k=k_sd) for b in sd_bodies),
+                        },
+                        {
+                            "label": "valid NESTED Dyck-k (stack-matched)",
+                            "count": sum(is_valid_nested_dyck(b, k=k_sd) for b in sd_bodies),
+                            "total": N,
+                            "ok": all(is_valid_nested_dyck(b, k=k_sd) for b in sd_bodies),
+                        },
+                    ],
+                }
+            )
 
         # ── dyck-1 ───────────────────────────────────────────────────
         vocab = get_vocab(3)
@@ -755,19 +782,24 @@ def main():
         )
 
         # ── Simple structural / counting / baseline patterns ─────────
-        simple_rows = collect_simple_pattern_data(get_vocab(256), L, n_samples=200, seed=0)
+        simple_rows = collect_simple_pattern_data(get_vocab(256), L, n_samples=100, seed=0)
 
         # ── NCA ──────────────────────────────────────────────────────
-        vocab = get_vocab(11)
-        n_nca = 100
-        d_state = min(nca_mod._D_STATE, len(vocab) - nca_mod._N_RESERVED)
-        frame_size = nca_mod._GRID_SIZE**2 + 2
+        # Tokens are 2x2 cell patches: patch vocab = d_state**_PATCH_CELLS,
+        # plus the 3 reserved IDs (pad + <grid> / </grid>).
+        patch_cells = nca_mod._PATCH_CELLS
+        d_state = nca_mod._D_STATE
+        vocab = get_vocab(nca_mod._N_RESERVED + d_state**patch_cells)
+        n_nca = 25
+        patches_per_side = nca_mod._GRID_SIZE // nca_mod._PATCH_SIZE
+        frame_size = patches_per_side**2 + 2
         pad_tok = PAD_ID
         open_tok = vocab[nca_mod._OPEN_IDX]
         close_tok = vocab[nca_mod._CLOSE_IDX]
-        state_ids = vocab[nca_mod._N_RESERVED : nca_mod._N_RESERVED + d_state]
+        state_ids = vocab[nca_mod._N_RESERVED : nca_mod._N_RESERVED + d_state**patch_cells]
 
-        nca_samples = [gen_nca(vocab, L, rng) for _ in range(n_nca)]
+        nca_len = nca_mod._PAPER_CONTEXT_LENGTH if nca_mod._REGIME == "paper" else L
+        nca_samples = [gen_nca(vocab, nca_len, rng) for _ in range(n_nca)]
         bad_frames = Counter()
         tail_total = tail_nonpad = 0
         for s in nca_samples:
@@ -775,7 +807,7 @@ def main():
             bad_frames.update(issues)
             tail_total += len(tail)
             tail_nonpad += sum(t != pad_tok for t in tail)
-        nca_gzip = _mean([gzip_complexity(s) for s in nca_samples])
+        nca_gzip = _mean([nca_gzip_complexity(s) for s in nca_samples])
 
         # Regime ladder
         saved = (nca_mod._TEMPERATURE, nca_mod._IDENTITY_BIAS)
@@ -812,8 +844,11 @@ def main():
         nca_row = {
             "name": f"nca ({nca_mod._REGIME})",
             "family": "nca",
-            "oracle_loss": active_reg["oracle"],
-            "random_baseline": ln_d,
+            # Per-TOKEN values: one token = one 2x2 patch = _PATCH_CELLS cells,
+            # and the patch cells are conditionally independent given the
+            # previous grid, so oracle/baseline scale by _PATCH_CELLS.
+            "oracle_loss": active_reg["oracle"] * patch_cells,
+            "random_baseline": patch_cells * ln_d,
             "gzip_ratio": nca_gzip,
             "unigram": None,
             "pad_frac": None,

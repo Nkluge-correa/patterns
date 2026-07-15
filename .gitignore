@@ -141,7 +141,7 @@ proc_data
 /examples/rag/sweep
 
 # data
-/data
+/data*
 serialization_dir
 
 # emacs

@@ -8,20 +8,23 @@
   Pattern                      Oracle Loss    Random    Gzip   Improvement
                               (best possible) (uniform)   Ratio (Random÷Oracle)
   ──────────────────────────────────────────────────────────────────────
-  shuffle_dyck (k=3)                1.0688    1.7918    0.34        1.68 x
+  shuffle_dyck (k=8)                1.7156    2.7726    0.51        1.62 x
+  shuffle_dyck (k=16)               2.0622    3.4657    0.62        1.68 x
+  shuffle_dyck (k=32)               2.4086    4.1589    0.75        1.73 x
+  shuffle_dyck (k=64)               2.7554    4.8520    0.88        1.76 x
   dyck-1                            0.6759    0.6931    0.18        1.03 x
-  periodic                          0.0055    5.5452    0.01     1013.86 x
-  copy                              2.3475    5.5452    0.44        2.36 x
-  counting_anbn                     0.1666    5.5452    0.08       33.28 x
-  counting_anbncn                   0.1134    5.5452    0.08       48.92 x
+  periodic                          0.0057    5.5452    0.01      968.32 x
+  copy                              2.3475    5.5452    0.43        2.36 x
+  counting_anbn                     0.1669    5.5452    0.08       33.22 x
+  counting_anbncn                   0.1138    5.5452    0.08       48.72 x
   interleaving                      0.0027    5.5452    0.01     2048.00 x
-  permutation_cycle                 0.0047    5.5452    0.01     1175.32 x
+  permutation_cycle                 0.0048    5.5452    0.01     1157.06 x
   hierarchical                      0.0041    5.5452    0.01     1365.00 x
   random                            5.5452    5.5452    1.01        1.00 x
   identity                          0.0014    5.5452    0.01     4096.00 x
   composite_mirror_repeat           1.3863    5.5452    0.52        4.00 x
-  mixer 🔮                          0.9114    5.5452    0.31        6.08 x
-  nca (learnable_50)                1.0052    2.0794    0.30        2.07 x
+  mixer 🔮                          0.9094    5.5452    0.31        6.10 x
+  nca (paper)                       0.0619    9.2103    0.77      148.84 x
 
   Oracle Loss    Best possible cross-entropy — a perfect model that learned the rule.
   Random         Cross-entropy of a uniform random guesser = ln(vocab size).
@@ -38,17 +41,29 @@
   🔹 Structural Validity
   Pattern                     Check                                    Result
   ───────────────────────────────────────────────────────────────────────────
-  shuffle_dyck (k=3)          exact length == L                  10000/10000  ✅
-  shuffle_dyck (k=3)          valid shuffle-Dyck (balanced)      10000/10000  ✅
-  shuffle_dyck (k=3)          valid NESTED Dyck-k (stack-matched) 10000/10000 ✅
-  dyck-1                      exact length == L                  10000/10000  ✅
-  dyck-1                      valid Dyck-1 (balanced)            10000/10000  ✅
-  nca                         frame open/close/cell malformed       0 issues  ✅
+  shuffle_dyck (k=8)          exact length == L                   2000/2000 ✅
+  shuffle_dyck (k=8)          valid shuffle-Dyck (balanced)       2000/2000 ✅
+  shuffle_dyck (k=8)          valid NESTED Dyck-k (stack-matched) 2000/2000 ✅
+  shuffle_dyck (k=16)         exact length == L                   2000/2000 ✅
+  shuffle_dyck (k=16)         valid shuffle-Dyck (balanced)       2000/2000 ✅
+  shuffle_dyck (k=16)         valid NESTED Dyck-k (stack-matched) 2000/2000 ✅
+  shuffle_dyck (k=32)         exact length == L                   2000/2000 ✅
+  shuffle_dyck (k=32)         valid shuffle-Dyck (balanced)       2000/2000 ✅
+  shuffle_dyck (k=32)         valid NESTED Dyck-k (stack-matched) 2000/2000 ✅
+  shuffle_dyck (k=64)         exact length == L                   2000/2000 ✅
+  shuffle_dyck (k=64)         valid shuffle-Dyck (balanced)       2000/2000 ✅
+  shuffle_dyck (k=64)         valid NESTED Dyck-k (stack-matched) 2000/2000 ✅
+  dyck-1                      exact length == L                   2000/2000 ✅
+  dyck-1                      valid Dyck-1 (balanced)             2000/2000 ✅
+  nca                         frame open/close/cell malformed      0 issues ✅
 
   🔹 Pad Token Sanity  (pad ID 0 should only appear as a trailing suffix)
   Pattern                     Pad Fraction       Status
   ─────────────────────────────────────────────────────
-  shuffle_dyck (k=3)                 0%             ✅ OK
+  shuffle_dyck (k=8)                 0%             ✅ OK
+  shuffle_dyck (k=16)                0%             ✅ OK
+  shuffle_dyck (k=32)                0%             ✅ OK
+  shuffle_dyck (k=64)                0%             ✅ OK
   dyck-1                             0%             ✅ OK
   periodic                           0%             ✅ OK
   copy                               0%             ✅ OK
@@ -61,32 +76,35 @@
   identity                           0%             ✅ OK
   composite_mirror_repeat            0%             ✅ OK
   mixer                              0%             ✅ OK
-  nca                              400 tail         ✅ OK
+  nca                              750 tail         ✅ OK
 
   🔹 Empirical Unigram Loss  (naive token-frequency baseline for comparison)
   Pattern                        Unigram     Oracle     Excess
   ────────────────────────────────────────────────────────────
-  shuffle_dyck (k=3)              1.7918     1.0688     0.7230
-  dyck-1                          0.6931     0.6759     0.0173
-  periodic                        5.3322     0.0055     5.3267
-  copy                            5.5415     2.3475     3.1940
-  counting_anbn                   5.1809     0.1666     5.0143
-  counting_anbncn                 5.3051     0.1134     5.1918
-  interleaving                    5.1394     0.0027     5.1367
-  permutation_cycle               5.2989     0.0047     5.2942
-  hierarchical                    5.2443     0.0041     5.2402
-  random                          5.5411     5.5452    -0.0041
-  identity                        4.7662     0.0014     4.7648
-  composite_mirror_repeat         5.5407     1.3863     4.1544
-  mixer                           5.5394     0.9114     4.6280
+  shuffle_dyck (k=8)              2.7726     1.7156     1.0570
+  shuffle_dyck (k=16)             3.4657     2.0622     1.4035
+  shuffle_dyck (k=32)             4.1589     2.4086     1.7503
+  shuffle_dyck (k=64)             4.8520     2.7554     2.0966
+  dyck-1                          0.6931     0.6759     0.0172
+  periodic                        5.0866     0.0057     5.0809
+  copy                            5.5411     2.3475     3.1936
+  counting_anbn                   4.8684     0.1669     4.7015
+  counting_anbncn                 5.0595     0.1138     4.9457
+  interleaving                    4.7887     0.0027     4.7859
+  permutation_cycle               5.0293     0.0048     5.0245
+  hierarchical                    4.9604     0.0041     4.9564
+  random                          5.5410     5.5452    -0.0042
+  identity                        4.3556     0.0014     4.3543
+  composite_mirror_repeat         5.5401     1.3863     4.1538
+  mixer                           5.5346     0.9094     4.6252
 
-  🔹 NCA Regime Ladder  (cell oracle vs uniform baseline ln(d)=2.0794)
+  🔹 NCA Regime Ladder  (per-CELL oracle vs uniform baseline ln(d)=2.3026; per-token values are 4x at 2x2 patches)
   Regime            Temp   Bias     Oracle   % of ln(d)      Verdict
   ─────────────────────────────────────────────────────────────────
-  unlearnable        1.0    0.0     2.0536        98.8%    NO signal
-  learnable_50       0.2    0.0     1.0052        48.3%  learnable ✅ ← active
-  learnable_25       0.5    2.0     0.5221        25.1%  learnable ✅
-  easy               0.1    0.0     0.0761         3.7%  learnable ✅
+  paper            0.001    0.0     0.0155         0.7%  learnable ✅ ← active
+  learnable_25     0.500    2.0     0.7133        31.0%  learnable ✅
+  learnable_50     0.200    0.0     1.9359        84.1%  learnable ✅
+  unlearnable      1.000    0.0     2.2828        99.1%    NO signal
 
   🔹 Notes on Oracle Loss Bounds
     mixer             — whole-context concatenation of sub-patterns; ignores

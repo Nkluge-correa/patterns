@@ -525,3 +525,55 @@ Howefver, the paper's batch sizes (16 / 512 samples) were tuned for their 1024-t
 | Gradient clipping                      | 1.0 / 1.0                 | **1.0 / 1.0 (unchanged)**                |
 
 Note: pretraining batch size/steps end up unchanged from the original table once tokens (not samples) are matched. Only the pre-pretraining phase actually needed to shrink (128 -> 4 samples, with a corresponding 30x increase in step count to hold the token budget constant). Only the LR values are a genuine departure from our original setup.
+
+### 2026-07-13: 670M-scale C4 transfer results — auditing protocol mismatches against the literature
+
+**Context.** We ran the revised-hyperparameter pre-pretraining → pretraining pipeline at the 670M-parameter scale on C4, comparing three pattern conditions (shuffle_dyck, mixer, nca_learnable_50) against a C4-only baseline. All three conditions were pre-pretrained for 1B tokens, then reset-with-attention-only, then continually pretrained for 5.2B tokens on C4.
+
+**Results.** Final C4 validation loss (lower = better) at step 10,000:
+
+| Condition               | Validation loss | Loss delta vs. C4 baseline |
+|-------------------------|----------------:|---------------------------:|
+| `c4` (baseline)         | 2.9300          | —                          |
+| `mixer → c4`            | 2.9107          | **−0.0193** (−1.9% ppl)    |
+| `nca_learnable_50 → c4` | 2.9268          | **−0.0032** (−0.3% ppl)    |
+| `shuffle_dyck → c4`     | 3.1506          | **+0.2206** (+24.7% ppl)   |
+
+The results are mixed rather than uniformly negative:
+- **Mixer** gives a modest but possibly meaningful improvement.
+- **NCA** is effectively tied with the baseline (a single seed cannot distinguish this from noise).
+- **Shuffle-Dyck** is actively harmful, ending substantially above baseline.
+
+**Protocol mismatches and changes implemented.**
+
+* **Weight transfer**
+
+  * **Our (old) pipeline:** Reset MLPs, norms, and embeddings; retain attention only.
+  * **Reference papers:** Full transfer except embeddings (Lee et al., 2026); full transfer (Hu et al., 2025).
+  * **What did we change:** Added `--embeddings_only` flag to `reset_weights.py` to match the reference paper's protocol.
+
+* **Shuffle-Dyck language**
+
+  * **Our (old) pipeline:** Nested k-Dyck (stack-matched, *k* = 3, max depth = 4, 7-token vocabulary).
+  * **Reference papers:** They use shuffle Dyck with *k* = 64, unbounded depth, 129-token vocabulary (128 bracket IDs + pad).
+  * **What did we change:** Updated `shuffle_dyck` to match use a k of 64 with a harmonic depth distribution (unbounded) and a 129-token vocabulary. We are **still using** nested Dyck instead of shuffle Dyck.
+
+* **Synthetic token budget**
+
+  * **Our (old) pipeline:** 1B tokens for all patterns.
+  * **Reference papers:** Approximately 30M for Dyck and 164M for NCA; both papers report non-monotonic transfer, where excessive pre-pretraining eventually hurts.
+  * **What did we change:** We have put warnings in place to alert when the synthetic token budget is exceeded. next runs should use 30M for Dyck and 164M for NCA. For all other patterns, 20M is set as a default.
+
+* **NCA setup**
+
+  * **Our (old) pipeline:** 8×8 grid, 8 states, τ = 0.2, direct per-cell tokens, 11-token vocabulary.
+  * **Reference papers:** 12×12 grid, 10 states, τ = 1e−3, 2×2 patch tokenization (10⁴-patch vocabulary), 164M tokens. However, we keep the context length at 4,096 instead of lowering to 1,024.
+  * **What did we change:** Updated NCA to also match the reference paper via the `_REGIME="paper"` option.  
+
+* **Weight reset seed**
+
+  * **Our (old) pipeline:** Not fixed; every reset used a different random initialization.
+  * **Reference papers:** Not applicable (the papers use full transfer).
+  * **What did we change:** Added `--seed` flag to `reset_weights.py` to allow reproducible resets.
+
+In short, we updated the weight-transfer protocol, the shuffle-dyck generator, the NCA generator, and the synthetic token budgets to match the reference papers. Now we need to re-run the 670M-scale pre-pretraining → pretraining pipeline with these fixes and report the new results in a follow-up entry.

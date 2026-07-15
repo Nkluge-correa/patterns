@@ -88,8 +88,10 @@ generator's output falls short of `--max-context-length` and needs padding:
   evenly into the context length, so `pad_to` fills the slack with ID 0
   at least some of the time.
 
-dyck, shuffle_dyck, and nca have their own internal ID management and may use the
-full vocab range for their patterns. To make things clear, here is a table of
+dyck, shuffle_dyck, and nca manage their own internal token IDs and ignore
+--vocab-size entirely for their own vocabulary (a too-small --vocab-size
+only prints a one-time warning; generation proceeds using their fixed
+internal ID ranges regardless). To make things clear, here is a table of
 expected unique token counts per pattern with `--vocab-size 256` and
 `--max-context-length 4096`:
 
@@ -102,21 +104,28 @@ expected unique token counts per pattern with `--vocab-size 256` and
 | interleaving            | 255           | 256               |
 | permutation_cycle       | 255           | 256               |
 | hierarchical            | 256           | 256               |
-| nca                     | 11            | 11                |
+| nca                     | 10000         | 10003             |
 | dyck                    | 2             | 3                 |
-| shuffle_dyck            | 6             | 7                 |
+| shuffle_dyck            | 2*k           | 2*k+1             |
 | random                  | 255           | 256               |
 | identity                | 255           | 256               |
 | composite_mirror_repeat | 255           | 256               |
 | mixer                   | 256           | 256               |
 
-- All pattwerns that have a +1 mismatch between unique tokens and
+- NCA uses 2x2 cell-patch tokens (patch vocab d_state**4 + 3 reserved
+  IDs).
+- For NCA, we also need to mask the loss of token IDs 1 and 2, which are
+  used for the NCA's grid delimiter (i.e., <grid> and </grid> tokens).
+- For dyck and shuffle_dyck, the actual vocab size is 1 larger than the
+    number of unique tokens because the reserved PAD_ID (0) is stripped.
+- For shuffle_dyck, the number of unique tokens is 2*k, where k is the
+  number of bracket types. The actual vocab size is 2*k + 1 because the
+  reserved PAD_ID (0) is stripped.
+- All patterns that have a +1 mismatch between unique tokens and
   actual vocab size are due to the reserved PAD_ID (0) being stripped
   from the generator's vocabulary before sample generation.
 - All patterns need to mask the loss for PAD_ID (0) during training,
   since it is not part of the actual content vocabulary.
-- For NCA, we also need to mask the loss of token IDs 1 and 2, which are
-  used for the NCA's grid delimiter (i.e., <grid> and </grid> tokens).
 """
 
 import argparse
@@ -134,12 +143,24 @@ from utils import get_vocab
 
 # Control flags for shared dynamics or token IDs in certain patterns.
 # See README.md for motivation and details.
-generators.nca._SHARED_RULE = True  # one NCA network for all samples
+generators.nca._SHARED_RULE = generators.nca._REGIME != "paper"
 generators.dyck._SHARED_IDS = True  # pad=0; dyck brackets=1,2; shuffle=1..2k
 
-MIN_VOCAB_SIZE = 12  # shuffle_dyck (k=3) floor is 7; mixer strips pad, passing V-1
-# IDs to sub-generators; nca needs 5. 12 gives comfortable
-# headroom for all three without parameter degradation.
+MIN_VOCAB_SIZE = 32  # generic floor for the simpler patterns. dyck,
+# shuffle_dyck, and nca ignore --vocab-size for their own vocabulary.
+
+# Literature-informed per-pattern token budgets for PRE-PRETRAINING data.
+# Beyond these, transfer has been reported to degrade or saturate:
+#   * nca:  ~164M tokens (Lee et al. 2026)
+#   * dyck-family: ~30M tokens (Hu et al. 2025)
+#   * everything else: conservative 20M default
+# Generation still proceeds past the budget; we only warn.
+PATTERN_TOKEN_BUDGETS = {
+    "nca": 164_000_000,
+    "dyck": 30_000_000,
+    "shuffle_dyck": 30_000_000,
+}
+DEFAULT_TOKEN_BUDGET = 20_000_000
 
 
 def main(args):
@@ -159,6 +180,17 @@ def main(args):
                 f"Unknown pattern(s): {', '.join(unknown)}. Available: {', '.join(PATTERNS)}"
             )
         active_patterns = {p: PATTERNS[p] for p in args.patterns}
+
+    if "nca" in active_patterns and generators.nca._REGIME == "paper":
+        if args.max_context_length != generators.nca._PAPER_CONTEXT_LENGTH:
+            print(
+                f"NCA paper regime: forcing --max-context-length from "
+                f"{args.max_context_length} to "
+                f"{generators.nca._PAPER_CONTEXT_LENGTH}.",
+                file=sys.stderr,
+            )
+        args.max_context_length = generators.nca._PAPER_CONTEXT_LENGTH
+        generators.nca._SHARED_RULE = False
 
     def display(ids: list[int]):
         return ids
@@ -218,6 +250,21 @@ def main(args):
     # Up-front cost estimate so the user can abort before filling the disk.
     total_samples = args.samples_per_pattern * len(active_patterns)
     total_tokens = total_samples * args.max_context_length
+
+    # Warn (but do not stop) when the per-pattern token count exceeds the
+    # literature-informed pre-pretraining budget for that pattern.
+    planned_tokens_per_pattern = args.samples_per_pattern * args.max_context_length
+    for name in active_patterns:
+        budget = PATTERN_TOKEN_BUDGETS.get(name, DEFAULT_TOKEN_BUDGET)
+        if planned_tokens_per_pattern > budget:
+            print(
+                f"WARNING: pattern '{name}': planned {planned_tokens_per_pattern:,} "
+                f"tokens exceed the recommended pre-pretraining budget of "
+                f"{budget:,} tokens; transfer quality may degrade beyond this "
+                f"point (see logs/README.md). Generation will proceed.",
+                file=sys.stderr,
+            )
+
     # Rough bytes/token estimate for JSONL output (digits + comma);
     # gzip typically compresses this ~3-4x for integer text.
     bytes_per_token = 6 if not args.gzip else 2
@@ -346,8 +393,9 @@ if __name__ == "__main__":
         default=256,
         metavar="N",
         help="Number of distinct token IDs. The vocabulary is simply "
-        "range(0, N). Must be at least 7 (ID 0 is a reserved pad token "
-        "and shuffle_dyck needs 2*k=6 distinct bracket IDs).",
+        "range(0, N). Must be at least 32 (ID 0 is a reserved pad token). "
+        "dyck, shuffle_dyck, and nca use fixed internal ID ranges and ignore "
+        "this for their own vocabulary.",
     )
     ap.add_argument("--max-context-length", type=int, default=1024)
     ap.add_argument("--samples-per-pattern", type=int, default=1000)

@@ -6,6 +6,7 @@ bracket types with strict top-of-stack matching).
 """
 
 import random
+import sys
 
 from registry import register
 from utils import PAD_ID, sample_distinct
@@ -16,6 +17,14 @@ from utils import PAD_ID, sample_distinct
 # sample from vocab[1:] (ID 0 stays the pad token regardless).
 _SHARED_IDS = False
 
+# The default number of bracket types for shuffle_dyck.
+K = 8
+
+# Set once a too-small --vocab-size has been warned about for each pattern,
+# so the warning prints only once per run instead of once per sample.
+_dyck_vocab_warned = False
+_shuffle_dyck_vocab_warned = False
+
 
 @register(
     "dyck",
@@ -23,9 +32,23 @@ _SHARED_IDS = False
     "ID 0 is a reserved pad token used for the tail.",
 )
 def gen_dyck(vocab: list[int], target_len: int, rng: random.Random) -> list[int]:
-    # Brackets are drawn from vocab[1:]; PAD_ID (0) is the reserved pad token.
+    # dyck manages its own bracket IDs internally and ignores --vocab-size
+    # entirely when _SHARED_IDS is set: open=1, close=2, regardless of the
+    # caller's vocab. If the supplied vocab is smaller than needed we just
+    # warn once and keep using the fixed IDs anyway.
+    global _dyck_vocab_warned
     if _SHARED_IDS:
-        open_id, close_id = vocab[1], vocab[2]
+        required = 3
+        if len(vocab) < required and not _dyck_vocab_warned:
+            print(
+                f"WARNING: dyck ignores --vocab-size for its own vocabulary; it "
+                f"always needs {required} IDs (pad + 2 bracket IDs), but only "
+                f"{len(vocab)} were supplied. Proceeding with fixed bracket IDs "
+                f"1 and 2, which exceed the requested vocab size.",
+                file=sys.stderr,
+            )
+            _dyck_vocab_warned = True
+        open_id, close_id = 1, 2
     else:
         open_id, close_id = sample_distinct(vocab[1:], 2, rng)
 
@@ -63,28 +86,44 @@ def gen_dyck(vocab: list[int], target_len: int, rng: random.Random) -> list[int]
 
 @register(
     "shuffle_dyck",
-    "Nested Dyck-k: k bracket types with strict hierarchical matching -- a "
-    "closer must match the most recently opened (top-of-stack) bracket type, "
-    "e.g. ( [ { } ] ). ID 0 is a reserved pad token used for the tail.",
+    f"Nested Dyck-k: k bracket types (default k={K}) with strict hierarchical "
+    "matching -- a closer must match the most recently opened (top-of-stack) "
+    "bracket type, e.g. ( [ { } ] ). Open/close is a fair coin (p_open=0.5) "
+    "with no depth cap, yielding a harmonic distribution over depths "
+    "(Hu et al. 2025). ID 0 is a reserved pad token used for the tail.",
 )
 def gen_shuffle_dyck(
     vocab: list[int],
     target_len: int,
     rng: random.Random,
-    k: int = 3,
+    k: int = K,
     p_open: float = 0.5,
-    max_depth: int = 4,
+    max_depth: int | None = None,
 ) -> list[int]:
-    # Brackets are drawn from vocab[1:]; PAD_ID (0) is the reserved pad token.
-    # We need 2*k distinct bracket IDs plus the pad, i.e. 2*k + 1 IDs total.
+    # shuffle_dyck manages its own bracket IDs internally and ignores
+    # --vocab-size entirely when _SHARED_IDS is set: openers=1..k,
+    # closers=k+1..2k, regardless of the caller's vocab. If the supplied
+    # vocab is smaller than needed we just warn once and keep using the
+    # fixed IDs anyway (k is never degraded).
+    global _shuffle_dyck_vocab_warned
     n_needed = 2 * k + 1
-    if len(vocab) < n_needed:
-        # Degrade gracefully: shrink k to what the vocab supports (minus pad).
-        k = max(1, (len(vocab) - 1) // 2)
     if _SHARED_IDS:
-        openers = vocab[1 : k + 1]
-        closers = vocab[k + 1 : 2 * k + 1]
+        if len(vocab) < n_needed and not _shuffle_dyck_vocab_warned:
+            print(
+                f"WARNING: shuffle_dyck ignores --vocab-size for its own "
+                f"vocabulary; it always needs {n_needed} IDs (pad + 2*k bracket "
+                f"IDs, k={k}), but only {len(vocab)} were supplied. Proceeding "
+                f"with fixed bracket IDs 1..{2 * k}, which exceed the requested "
+                f"vocab size.",
+                file=sys.stderr,
+            )
+            _shuffle_dyck_vocab_warned = True
+        openers = list(range(1, k + 1))
+        closers = list(range(k + 1, 2 * k + 1))
     else:
+        if len(vocab) < n_needed:
+            # Degrade gracefully: shrink k to what the vocab supports (minus pad).
+            k = max(1, (len(vocab) - 1) // 2)
         bracket_ids = sample_distinct(vocab[1:], 2 * k, rng)
         openers, closers = bracket_ids[:k], bracket_ids[k:]
 
@@ -98,6 +137,10 @@ def gen_shuffle_dyck(
     # stack. This makes the closer *type* a deterministic function of the
     # context (the open brackets seen so far), creating a genuine
     # hierarchical dependency the model has to track to predict it.
+    #
+    # With p_open=0.5 and max_depth=None the depth performs a fair random
+    # walk reflected at 0, which yields a harmonic distribution over depths
+    # -- the corpus construction used by Hu et al. (2025).
     while len(sequence) < target_len:
         budget = target_len - len(sequence)
         depth = len(stack)
@@ -111,8 +154,8 @@ def gen_shuffle_dyck(
                 break  # a lone slot cannot host a balanced token -> pad it
             continue
         # We may open only if there is room to close the new bracket too and
-        # we are under the depth cap; otherwise we are forced to close.
-        can_open = budget >= depth + 2 and depth < max_depth
+        # we are under the (optional) depth cap; otherwise we must close.
+        can_open = budget >= depth + 2 and (max_depth is None or depth < max_depth)
         if can_open and rng.random() < p_open:
             b = rng.randrange(k)
             sequence.append(openers[b])
