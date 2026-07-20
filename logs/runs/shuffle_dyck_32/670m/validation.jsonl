@@ -1,0 +1,2 @@
+{"kwh": 0.006061, "loss": 3.145396, "stage_name": "shuffle_dyck_32", "status": "validation", "step": 200, "val_time_s": 15.541506}
+{"kwh": 0.05095, "loss": 2.560344, "stage_name": "shuffle_dyck_32", "status": "validation", "step": 2000, "val_time_s": 12.91583}

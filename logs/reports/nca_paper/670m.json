@@ -1,0 +1,22 @@
+{
+  "run_name": "nca_paper",
+  "model_params": 609000000,
+  "total_train_tokens": 163840000,
+  "total_train_flops": 5.9867136e+17,
+  "initial_train_loss_nats": 9.508326,
+  "final_train_loss_nats": 6.216257,
+  "final_val_loss_nats": 6.214136,
+  "S_nats_total": 69815199.81772803,
+  "S_bits": 100722042.55570829,
+  "S_bits_per_train_token": 0.6147585605206805,
+  "H_bits_per_test_token": 8.965103190609579,
+  "total_info_bits_per_token": 9.57986175113026,
+  "structural_fraction": 0.06417196578522122,
+  "gzip_complexity": 0.748636,
+  "oracle_loss_nats": 0.0619,
+  "language_entropy_nats": null,
+  "approximation_used": false,
+  "warnings": [
+    "3792 steps have loss BELOW final training loss (6.2163); the model may still be improving."
+  ]
+}

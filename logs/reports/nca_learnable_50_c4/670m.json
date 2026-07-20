@@ -1,0 +1,22 @@
+{
+  "run_name": "nca_learnable_50_c4",
+  "model_params": 670000000,
+  "total_train_tokens": 5200000000,
+  "total_train_flops": 2.0904e+19,
+  "initial_train_loss_nats": 10.775422,
+  "final_train_loss_nats": 2.916008,
+  "final_val_loss_nats": 2.92629,
+  "S_nats_total": 2216671332.7199993,
+  "S_bits": 3197980738.9958725,
+  "S_bits_per_train_token": 0.6149962959607447,
+  "H_bits_per_test_token": 4.221744071202965,
+  "total_info_bits_per_token": 4.836740367163709,
+  "structural_fraction": 0.12715098377740336,
+  "gzip_complexity": 0.388584,
+  "oracle_loss_nats": null,
+  "language_entropy_nats": 1.8,
+  "approximation_used": false,
+  "warnings": [
+    "1150 steps have loss BELOW final training loss (2.9160); the model may still be improving."
+  ]
+}

@@ -1,2 +1,2 @@
-{"kwh": 0.383729, "loss": 0.817234, "stage_name": "counting_anbncn", "status": "validation", "step": 200, "val_time_s": 16.478625}
-{"kwh": 3.795141, "loss": 0.444355, "stage_name": "counting_anbncn", "status": "validation", "step": 2000, "val_time_s": 16.223844}
+{"kwh": 0.006114, "loss": 3.558664, "stage_name": "counting_anbncn", "status": "validation", "step": 200, "val_time_s": 14.849739}
+{"kwh": 0.048431, "loss": 1.928473, "stage_name": "counting_anbncn", "status": "validation", "step": 2000, "val_time_s": 12.22204}

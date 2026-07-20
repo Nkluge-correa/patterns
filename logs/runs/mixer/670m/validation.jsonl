@@ -1,2 +1,2 @@
-{"kwh": 0.548644, "loss": 3.885481, "stage_name": "mixer", "status": "validation", "step": 6000, "val_time_s": 35.024852}
-{"kwh": 5.655112, "loss": 0.939534, "stage_name": "mixer", "status": "validation", "step": 60000, "val_time_s": 35.117186}
+{"kwh": 0.019153, "loss": 5.539403, "stage_name": "mixer", "status": "validation", "step": 700, "val_time_s": 15.093226}
+{"kwh": 0.176884, "loss": 3.657732, "stage_name": "mixer", "status": "validation", "step": 7000, "val_time_s": 12.92783}

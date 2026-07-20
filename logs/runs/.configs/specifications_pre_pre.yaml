@@ -18,7 +18,7 @@ path_to_model_config: "/home/nklugeco/config.json"
 base_model: null # "/home/nklugeco/checkpoints/identity/reset-model"
 tokenizer_name_or_path: null # "HuggingFaceTB/SmolLM2-135M"
 chat_template_path: null
-attn_implementation: "flash_attention_2"
+attn_implementation: "flash_attention_4"
 continual_pretraining: false
 enable_expert_parallelism: false
 use_kernels: false
@@ -33,7 +33,7 @@ total_batch_size: 16384
 micro_batch_size: 4
 eval_micro_batch_size: 4
 num_train_epochs: 1
-max_steps: 60000
+max_steps: 2000 # 10000 for NCA, 7000 for mixer, 2000 for Dyck (and all other patterns)
 seed: 1337
 
 # Optimizer settings
@@ -41,7 +41,7 @@ optimizer_type: "adamw"
 max_learning_rate: 0.0001
 min_learning_rate: 0.0
 muon_learning_rate: 0.1
-warmup_steps: 6000
+warmup_steps: 200 # 1000 for NCA, 700 for mixer, 200 for Dyck (and all other patterns)
 lr_decay_type: "cosine"
 use_sqrt: true
 lr_decay_iters_coef: 0.1

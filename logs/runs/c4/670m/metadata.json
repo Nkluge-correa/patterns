@@ -17,7 +17,7 @@
       ],
       "run_info": {
         "Training stage": "c4",
-        "Run ID": "26309933",
+        "Run ID": "26419192",
         "Hardware": "A40",
         "World size (total GPUs)": "4",
         "Precision": "bfloat16"
@@ -28,7 +28,7 @@
         "Length of train dataloader": "81,647",
         "Max position embeddings (seq length)": "4,096",
         "Shuffle dataset": "True",
-        "Additional mask token IDs": "None"
+        "Masked token IDs": "[0]"
       },
       "Batch Configuration": {
         "Num Epochs": "1",
@@ -81,7 +81,7 @@
       },
       "Optimizer Configuration (AdamW)": {
         "Optimizer type": "adamw",
-        "Max learning rate (Adam)": "0.001",
+        "Max learning rate (Adam)": "0.0005",
         "Min learning rate": "0.0",
         "LR scheduler type": "COSINE",
         "LR decay iterations coef": "0.1",
@@ -95,9 +95,9 @@
     }
   },
   "emissions": {
-    "duration_hours": 23.3052,
-    "energy_consumed_kwh": 30.381512,
-    "co2_emissions_kgco2eq": 11.573837,
+    "duration_hours": 23.2725,
+    "energy_consumed_kwh": 30.529539,
+    "co2_emissions_kgco2eq": 11.630228,
     "num_nodes": 1
   }
 }

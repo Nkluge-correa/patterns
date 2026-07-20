@@ -7,38 +7,37 @@
         "Initializing model from `AutoConfig`.",
         "Applied Liger kernels to the model.",
         "Number of trainable parameters: 670,127,616",
-        "Shuffling enabled. Shuffling 18 dataset files.",
+        "Shuffling enabled. Shuffling 34 dataset files.",
         "Collate function will mask token IDs: [0]",
         "Overriding the number of steps to 10000 as per the `max_steps` argument (check the YAML file if you are not sure).",
         "Using learning rate decay type: cosine"
       ],
       "events": [
-        "Learning rate stage changed to: cosine_decay at step 1000 | fineweb-edu.",
-        "Epoch 2 of 1"
+        "Learning rate stage changed to: cosine_decay at step 1000 | fineweb-edu."
       ],
       "run_info": {
         "Training stage": "fineweb-edu",
-        "Run ID": "204590",
-        "Hardware": "A100",
-        "World size (total GPUs)": "2",
+        "Run ID": "26426310",
+        "Hardware": "A40",
+        "World size (total GPUs)": "4",
         "Precision": "bfloat16"
       },
       "Dataset Configuration": {
-        "Num train examples": "1,274,685",
-        "Num validation examples": "25,600",
-        "Length of train dataloader": "39,834",
+        "Num train examples": "2,454,394",
+        "Num validation examples": "8,192",
+        "Length of train dataloader": "76,700",
         "Max position embeddings (seq length)": "4,096",
         "Shuffle dataset": "True",
-        "Additional mask token IDs": "None"
+        "Masked token IDs": "[0]"
       },
       "Batch Configuration": {
         "Num Epochs": "1",
-        "Micro batch size per device": "16",
+        "Micro batch size per device": "8",
         "Gradient accumulation steps": "4",
         "Total batch size (samples)": "128",
         "Total batch size (tokens)": "524,288",
         "Total optimization steps": "10,000",
-        "Steps per epoch": "9,959",
+        "Steps per epoch": "19,175",
         "Checkpointing every": "5000 steps"
       },
       "Model Architecture": {
@@ -82,7 +81,7 @@
       },
       "Optimizer Configuration (AdamW)": {
         "Optimizer type": "adamw",
-        "Max learning rate (Adam)": "0.001",
+        "Max learning rate (Adam)": "0.0005",
         "Min learning rate": "0.0",
         "LR scheduler type": "COSINE",
         "LR decay iterations coef": "0.1",
@@ -96,9 +95,9 @@
     }
   },
   "emissions": {
-    "duration_hours": 21.0653,
-    "energy_consumed_kwh": 22.64182,
-    "co2_emissions_kgco2eq": 8.625401,
+    "duration_hours": 22.7997,
+    "energy_consumed_kwh": 29.773913,
+    "co2_emissions_kgco2eq": 11.342372,
     "num_nodes": 1
   }
 }

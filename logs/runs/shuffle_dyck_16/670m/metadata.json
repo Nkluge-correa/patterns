@@ -1,0 +1,104 @@
+{
+  "resume_count": 0,
+  "stages": {
+    "shuffle_dyck_16": {
+      "resume_count": 0,
+      "initialization_notes": [
+        "No tokenizer specified. Continuing without a tokenizer because training is configured from scratch.",
+        "Initializing model from `AutoConfig`.",
+        "Applied Liger kernels to the model.",
+        "Number of trainable parameters: 594,680,832",
+        "Shuffling enabled. Shuffling 2 dataset files.",
+        "Collate function will mask token IDs: [0]",
+        "Overriding the number of steps to 2000 as per the `max_steps` argument (check the YAML file if you are not sure).",
+        "Using learning rate decay type: cosine"
+      ],
+      "events": [
+        "Learning rate stage changed to: cosine_decay at step 200 | shuffle_dyck_16."
+      ],
+      "run_info": {
+        "Training stage": "shuffle_dyck_16",
+        "Run ID": "55157",
+        "Hardware": "H200",
+        "World size (total GPUs)": "1",
+        "Precision": "bfloat16"
+      },
+      "Dataset Configuration": {
+        "Num train examples": "45,000",
+        "Num validation examples": "1,024",
+        "Length of train dataloader": "11,250",
+        "Max position embeddings (seq length)": "4,096",
+        "Shuffle dataset": "True",
+        "Masked token IDs": "[0]"
+      },
+      "Batch Configuration": {
+        "Num Epochs": "1",
+        "Micro batch size per device": "4",
+        "Gradient accumulation steps": "1",
+        "Total batch size (samples)": "4",
+        "Total batch size (tokens)": "16,384",
+        "Total optimization steps": "2,000",
+        "Steps per epoch": "11,250",
+        "Checkpointing every": "100000 steps"
+      },
+      "Model Architecture": {
+        "Model config": {
+          "architectures": [
+            "LlamaForCausalLM"
+          ],
+          "attention_bias": false,
+          "attention_dropout": 0.0,
+          "bos_token_id": 0,
+          "eos_token_id": 0,
+          "head_dim": 96,
+          "hidden_act": "silu",
+          "hidden_size": 1536,
+          "initializer_range": 0.02,
+          "intermediate_size": 3072,
+          "is_llama_config": true,
+          "max_position_embeddings": 4096,
+          "mlp_bias": false,
+          "model_type": "llama",
+          "num_attention_heads": 16,
+          "num_hidden_layers": 28,
+          "num_key_value_heads": 8,
+          "pad_token_id": 0,
+          "pretraining_tp": 1,
+          "rms_norm_eps": 1e-06,
+          "rope_interleaved": false,
+          "rope_scaling": null,
+          "rope_theta": 50000.0,
+          "tie_word_embeddings": true,
+          "torch_dtype": "bfloat16",
+          "transformers_version": "4.53.2",
+          "use_cache": false,
+          "vocab_size": 256
+        },
+        "Attention implementation": "flash_attention_4",
+        "Gradient checkpointing": "False",
+        "Liger kernel": "True",
+        "Torch compile": "False",
+        "Trainable parameters": "594,680,832"
+      },
+      "Optimizer Configuration (AdamW)": {
+        "Optimizer type": "adamw",
+        "Max learning rate (Adam)": "0.0001",
+        "Min learning rate": "0.0",
+        "LR scheduler type": "COSINE",
+        "LR decay iterations coef": "0.1",
+        "Warmup steps": "200",
+        "Weight decay": "0.1",
+        "Beta1": "0.9",
+        "Beta2": "0.95",
+        "Epsilon": "1e-08",
+        "Max grad norm": "1.0"
+      }
+    }
+  },
+  "emissions": {
+    "duration_hours": 0.1478,
+    "energy_consumed_kwh": 0.071785,
+    "co2_emissions_kgco2eq": 0.027346,
+    "num_nodes": 1
+  }
+}

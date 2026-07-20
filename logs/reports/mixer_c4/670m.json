@@ -1,0 +1,22 @@
+{
+  "run_name": "mixer_c4",
+  "model_params": 670000000,
+  "total_train_tokens": 5200000000,
+  "total_train_flops": 2.0904e+19,
+  "initial_train_loss_nats": 10.754295,
+  "final_train_loss_nats": 2.891964,
+  "final_val_loss_nats": 2.90454,
+  "S_nats_total": 2165016739.339999,
+  "S_bits": 3123458913.2874103,
+  "S_bits_per_train_token": 0.6006651756321942,
+  "H_bits_per_test_token": 4.19036545406363,
+  "total_info_bits_per_token": 4.7910306296958245,
+  "structural_fraction": 0.12537285232725168,
+  "gzip_complexity": 0.388584,
+  "oracle_loss_nats": null,
+  "language_entropy_nats": 1.8,
+  "approximation_used": false,
+  "warnings": [
+    "1069 steps have loss BELOW final training loss (2.8920); the model may still be improving."
+  ]
+}

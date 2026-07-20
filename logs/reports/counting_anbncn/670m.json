@@ -1,22 +1,22 @@
 {
   "run_name": "counting_anbncn",
-  "model_params": 670000000,
-  "total_train_tokens": 1000000000,
-  "total_train_flops": 4.02e+18,
-  "initial_train_loss_nats": 5.695943,
-  "final_train_loss_nats": 0.437751,
-  "final_val_loss_nats": 0.444355,
-  "S_nats_total": 208169903.5,
-  "S_bits": 300325687.4417841,
-  "S_bits_per_train_token": 0.30032568744178406,
-  "H_bits_per_test_token": 0.6410687548942153,
-  "total_info_bits_per_token": 0.9413944423359994,
-  "structural_fraction": 0.31902215897573016,
+  "model_params": 595000000,
+  "total_train_tokens": 32768000,
+  "total_train_flops": 1.1698176e+17,
+  "initial_train_loss_nats": 5.947174,
+  "final_train_loss_nats": 1.896486,
+  "final_val_loss_nats": 1.928473,
+  "S_nats_total": 31711259.852800004,
+  "S_bits": 45749677.32997585,
+  "S_bits_per_train_token": 1.3961693521110794,
+  "H_bits_per_test_token": 2.7821984335882624,
+  "total_info_bits_per_token": 4.178367785699342,
+  "structural_fraction": 0.33414228323546197,
   "gzip_complexity": 0.095935,
-  "oracle_loss_nats": 0.1134,
+  "oracle_loss_nats": 0.1138,
   "language_entropy_nats": null,
   "approximation_used": false,
   "warnings": [
-    "8 steps have loss BELOW final training loss (0.4378); the model may still be improving."
+    "389 steps have loss BELOW final training loss (1.8965); the model may still be improving."
   ]
 }

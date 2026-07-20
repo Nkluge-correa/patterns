@@ -4,19 +4,19 @@
   "total_train_tokens": 5200000000,
   "total_train_flops": 2.0904e+19,
   "initial_train_loss_nats": 11.076897,
-  "final_train_loss_nats": 2.856023,
-  "final_val_loss_nats": 2.866118,
-  "S_nats_total": 2060476168.92,
-  "S_bits": 2972638750.7707744,
-  "S_bits_per_train_token": 0.571661298225149,
-  "H_bits_per_test_token": 4.134934225202595,
-  "total_info_bits_per_token": 4.706595523427744,
-  "structural_fraction": 0.12145961882206027,
+  "final_train_loss_nats": 2.919559,
+  "final_val_loss_nats": 2.930004,
+  "S_nats_total": 2252278897.44,
+  "S_bits": 3249351596.0355506,
+  "S_bits_per_train_token": 0.6248753069299136,
+  "H_bits_per_test_token": 4.227102240584826,
+  "total_info_bits_per_token": 4.85197754751474,
+  "structural_fraction": 0.12878775732381215,
   "gzip_complexity": 0.388584,
   "oracle_loss_nats": null,
   "language_entropy_nats": 1.8,
   "approximation_used": false,
   "warnings": [
-    "1039 steps have loss BELOW final training loss (2.8560); the model may still be improving."
+    "1149 steps have loss BELOW final training loss (2.9196); the model may still be improving."
   ]
 }

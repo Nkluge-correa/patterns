@@ -17,9 +17,9 @@
       ],
       "run_info": {
         "Training stage": "open-web-math",
-        "Run ID": "26305682",
-        "Hardware": "A40",
-        "World size (total GPUs)": "4",
+        "Run ID": "123179",
+        "Hardware": "H200",
+        "World size (total GPUs)": "2",
         "Precision": "bfloat16"
       },
       "Dataset Configuration": {
@@ -28,11 +28,11 @@
         "Length of train dataloader": "107,263",
         "Max position embeddings (seq length)": "4,096",
         "Shuffle dataset": "True",
-        "Additional mask token IDs": "None"
+        "Masked token IDs": "[0]"
       },
       "Batch Configuration": {
         "Num Epochs": "1",
-        "Micro batch size per device": "8",
+        "Micro batch size per device": "16",
         "Gradient accumulation steps": "4",
         "Total batch size (samples)": "128",
         "Total batch size (tokens)": "524,288",
@@ -73,7 +73,7 @@
           "use_cache": false,
           "vocab_size": 49152
         },
-        "Attention implementation": "flash_attention_2",
+        "Attention implementation": "flash_attention_4",
         "Gradient checkpointing": "False",
         "Liger kernel": "True",
         "Torch compile": "False",
@@ -81,7 +81,7 @@
       },
       "Optimizer Configuration (AdamW)": {
         "Optimizer type": "adamw",
-        "Max learning rate (Adam)": "0.001",
+        "Max learning rate (Adam)": "0.0005",
         "Min learning rate": "0.0",
         "LR scheduler type": "COSINE",
         "LR decay iterations coef": "0.1",
@@ -95,9 +95,9 @@
     }
   },
   "emissions": {
-    "duration_hours": 23.2415,
-    "energy_consumed_kwh": 30.220435,
-    "co2_emissions_kgco2eq": 11.512475,
+    "duration_hours": 7.9025,
+    "energy_consumed_kwh": 3.806004,
+    "co2_emissions_kgco2eq": 1.449897,
     "num_nodes": 1
   }
 }

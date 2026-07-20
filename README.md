@@ -1,4 +1,4 @@
-# Patterns Are All You Need
+# Patterns
 
 This is a simple codebase for generating synthetic sequence data with structural patterns. The patterns are designed to probe various capabilities a sequence model may need (locality, symmetry, counting, recursion, agreement, etc.) and can be used for "pre-pretraining" before exposing the model to natural language.
 

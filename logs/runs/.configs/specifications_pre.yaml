@@ -14,11 +14,11 @@ shuffle_dataset: true
 additional_mask_token_ids: null
 
 # Model and tokenizer settings
-path_to_model_config: "/home/nklugeco/config.json"
-base_model: "/home/nklugeco/<pattern>/model"
+path_to_model_config: null
+base_model: "/home/nklugeco/<pattern>/reset_model"
 tokenizer_name_or_path: "HuggingFaceTB/SmolLM2-135M"
 chat_template_path: null
-attn_implementation: "flash_attention_2"
+attn_implementation: "flash_attention_4"
 continual_pretraining: true
 enable_expert_parallelism: false
 use_kernels: false

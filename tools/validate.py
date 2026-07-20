@@ -527,13 +527,6 @@ def _print_diagnostics(dyck_rows, simple_rows, nca_blob):
                 f"  {r['name']:<27} {r['valid_label']:<34} "
                 f"{r['valid_count']:>4}/{r['total_count']:<4}{mark}"
             )
-    if nca_blob:
-        bo, bc, bcell = nca_blob["bad_open"], nca_blob["bad_close"], nca_blob["bad_cell"]
-        n_bad = bo + bc + bcell
-        ok = n_bad == 0
-        mark = " ✅" if ok else " ❌ FAIL"
-        print(f"  {'nca':<27} {'frame open/close/cell malformed':<34} {n_bad:>4} issues{mark}")
-
     # Pad token sanity
     print("\n  🔹 Pad Token Sanity  (pad ID 0 should only appear as a trailing suffix)")
     print(f"  {'Pattern':<27} {'Pad Fraction':>12} {'Status':>12}")
@@ -552,14 +545,6 @@ def _print_diagnostics(dyck_rows, simple_rows, nca_blob):
             print(
                 f"  {r['name']:<27} {pf * 100:>8.0f}%     {'✅ OK' if ok else '⚠️  PAD IN BODY':>12}"
             )
-    if nca_blob:
-        total_tail = nca_blob["tail_total"]
-        nonpad = nca_blob["tail_nonpad"]
-        ok = nonpad == 0
-        print(
-            f"  {'nca':<27} {total_tail:>8} tail    {'✅ OK' if ok else '⚠️  NON-PAD IN TAIL':>12}"
-        )
-
     # Empirical unigram comparison
     print("\n  🔹 Empirical Unigram Loss  (naive token-frequency baseline for comparison)")
     print(f"  {'Pattern':<27} {'Unigram':>10} {'Oracle':>10} {'Excess':>10}")
@@ -799,22 +784,20 @@ def main():
         state_ids = vocab[nca_mod._N_RESERVED : nca_mod._N_RESERVED + d_state**patch_cells]
 
         nca_len = nca_mod._PAPER_CONTEXT_LENGTH if nca_mod._REGIME == "paper" else L
-        nca_samples = [gen_nca(vocab, nca_len, rng) for _ in range(n_nca)]
-        bad_frames = Counter()
-        tail_total = tail_nonpad = 0
-        for s in nca_samples:
-            issues, tail = validate_nca_structure(s, frame_size, open_tok, close_tok, state_ids)
-            bad_frames.update(issues)
-            tail_total += len(tail)
-            tail_nonpad += sum(t != pad_tok for t in tail)
-        nca_gzip = _mean([nca_gzip_complexity(s) for s in nca_samples])
+        n_full_frames = nca_len // frame_size
+        ln_d = math.log(d_state)
 
-        # Regime ladder
+        # One row per (temperature, identity_bias) preset -- mirrors how
+        # shuffle_dyck sweeps k in the primary table above. Every regime is
+        # sampled under the SAME _REGIME-derived knobs (burn-in / shared-rule,
+        # frozen for this whole run at import time), so only temperature/bias
+        # actually vary across rows -- exactly as in the Regime Ladder below.
         saved = (nca_mod._TEMPERATURE, nca_mod._IDENTITY_BIAS)
         regimes = []
+        nca_rows = []
         for name, (temp, bias) in nca_mod._REGIMES.items():
             nca_mod._TEMPERATURE, nca_mod._IDENTITY_BIAS = temp, bias
-            H_cell, ln_d = nca_oracle_entropy()
+            H_cell, _ = nca_oracle_entropy()
             regimes.append(
                 {
                     "name": name,
@@ -825,42 +808,56 @@ def main():
                     "active": name == nca_mod._REGIME,
                 }
             )
+
+            samples = [gen_nca(vocab, nca_len, rng) for _ in range(n_nca)]
+            bad_frames = Counter()
+            tail_nonpad = 0
+            for s in samples:
+                issues, tail = validate_nca_structure(s, frame_size, open_tok, close_tok, state_ids)
+                bad_frames.update(issues)
+                tail_nonpad += sum(t != pad_tok for t in tail)
+            n_bad = bad_frames["bad_open"] + bad_frames["bad_close"] + bad_frames["bad_cell"]
+            frames_checked = n_nca * n_full_frames
+
+            nca_rows.append(
+                {
+                    "name": f"nca ({name})",
+                    "family": "nca",
+                    # Per-TOKEN values: one token = one 2x2 patch = _PATCH_CELLS
+                    # cells, conditionally independent given the previous grid,
+                    # so oracle/baseline scale by _PATCH_CELLS.
+                    "oracle_loss": H_cell * patch_cells,
+                    "random_baseline": patch_cells * ln_d,
+                    "gzip_ratio": _mean([nca_gzip_complexity(s) for s in samples]),
+                    "unigram": None,
+                    "pad_frac": _mean([_pad_fraction(s) for s in samples]),
+                    "pad_ok": tail_nonpad == 0,
+                    "loose_bound": False,
+                    "warnings": ([] if tail_nonpad == 0 else ["PAD_INSIDE_BODY"]),
+                    "validity_checks": [
+                        {
+                            "label": "exact length == L",
+                            "count": sum(len(s) == nca_len for s in samples),
+                            "total": n_nca,
+                            "ok": all(len(s) == nca_len for s in samples),
+                        },
+                        {
+                            "label": "frame open/close/cell well-formed",
+                            "count": frames_checked - n_bad,
+                            "total": frames_checked,
+                            "ok": n_bad == 0,
+                        },
+                    ],
+                }
+            )
         nca_mod._TEMPERATURE, nca_mod._IDENTITY_BIAS = saved
 
-        # Active regime values for the primary table
-        active_reg = next(r for r in regimes if r["active"])
-        ln_d = math.log(nca_mod._D_STATE)
-
-        nca_blob = {
-            "bad_open": bad_frames["bad_open"],
-            "bad_close": bad_frames["bad_close"],
-            "bad_cell": bad_frames["bad_cell"],
-            "tail_total": tail_total,
-            "tail_nonpad": tail_nonpad,
-            "ln_d": ln_d,
-            "regimes": regimes,
-        }
-
-        nca_row = {
-            "name": f"nca ({nca_mod._REGIME})",
-            "family": "nca",
-            # Per-TOKEN values: one token = one 2x2 patch = _PATCH_CELLS cells,
-            # and the patch cells are conditionally independent given the
-            # previous grid, so oracle/baseline scale by _PATCH_CELLS.
-            "oracle_loss": active_reg["oracle"] * patch_cells,
-            "random_baseline": patch_cells * ln_d,
-            "gzip_ratio": nca_gzip,
-            "unigram": None,
-            "pad_frac": None,
-            "pad_ok": True,
-            "loose_bound": False,
-            "warnings": [],
-        }
+        nca_blob = {"ln_d": ln_d, "regimes": regimes}
 
         # ── Print unified report ─────────────────────────────────────
-        all_primary = dyck_rows + simple_rows + [nca_row]
+        all_primary = dyck_rows + simple_rows + nca_rows
         _print_primary_table(all_primary)
-        _print_diagnostics(dyck_rows, simple_rows, nca_blob)
+        _print_diagnostics(dyck_rows + nca_rows, simple_rows, nca_blob)
 
         # Restore stdout (log file auto-closed by context manager).
         sys.stdout = _old_stdout

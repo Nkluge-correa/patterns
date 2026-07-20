@@ -1,2 +1,2 @@
-{"kwh": 0.399972, "loss": 2.771751, "stage_name": "composite_mirror_repeat", "status": "validation", "step": 200, "val_time_s": 16.433825}
-{"kwh": 4.00705, "loss": 2.756824, "stage_name": "composite_mirror_repeat", "status": "validation", "step": 2000, "val_time_s": 16.188369}
+{"kwh": 0.014018, "loss": 5.558157, "stage_name": "composite_mirror_repeat", "status": "validation", "step": 200, "val_time_s": 15.061138}
+{"kwh": 0.094572, "loss": 2.768454, "stage_name": "composite_mirror_repeat", "status": "validation", "step": 2000, "val_time_s": 12.881469}

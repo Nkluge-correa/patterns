@@ -1,2 +1,2 @@
-{"kwh": 0.389461, "loss": 1.136718, "stage_name": "nca_learnable_50", "status": "validation", "step": 200, "val_time_s": 16.474812}
-{"kwh": 3.947949, "loss": 0.999579, "stage_name": "nca_learnable_50", "status": "validation", "step": 2000, "val_time_s": 16.342291}
+{"kwh": 0.026217, "loss": 7.509047, "stage_name": "nca_learnable_50", "status": "validation", "step": 1000, "val_time_s": 16.78281}
+{"kwh": 0.247997, "loss": 6.782795, "stage_name": "nca_learnable_50", "status": "validation", "step": 10000, "val_time_s": 14.251085}

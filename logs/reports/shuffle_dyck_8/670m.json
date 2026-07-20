@@ -1,0 +1,22 @@
+{
+  "run_name": "shuffle_dyck_8",
+  "model_params": 594000000,
+  "total_train_tokens": 32768000,
+  "total_train_flops": 1.16785152e+17,
+  "initial_train_loss_nats": 3.102802,
+  "final_train_loss_nats": 1.796518,
+  "final_val_loss_nats": 1.804479,
+  "S_nats_total": 3586083.946495998,
+  "S_bits": 5173625.525821299,
+  "S_bits_per_train_token": 0.15788652117374571,
+  "H_bits_per_test_token": 2.6033129046882757,
+  "total_info_bits_per_token": 2.7611994258620216,
+  "structural_fraction": 0.05718041214080543,
+  "gzip_complexity": 0.46582,
+  "oracle_loss_nats": 1.7156,
+  "language_entropy_nats": null,
+  "approximation_used": false,
+  "warnings": [
+    "110 steps have loss BELOW final training loss (1.7965); the model may still be improving."
+  ]
+}

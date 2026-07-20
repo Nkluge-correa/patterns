@@ -1,22 +1,22 @@
 {
   "run_name": "nca_learnable_50",
-  "model_params": 670000000,
-  "total_train_tokens": 5200000000,
-  "total_train_flops": 2.0904e+19,
-  "initial_train_loss_nats": 2.586815,
-  "final_train_loss_nats": 0.996938,
-  "final_val_loss_nats": 0.999579,
-  "S_nats_total": 177086633.10000002,
-  "S_bits": 255482007.3810934,
-  "S_bits_per_train_token": 0.04913115526559489,
-  "H_bits_per_test_token": 1.4420876662767492,
-  "total_info_bits_per_token": 1.491218821542344,
-  "structural_fraction": 0.03294697904548932,
-  "gzip_complexity": 0.267513,
-  "oracle_loss_nats": 1.0052,
+  "model_params": 609000000,
+  "total_train_tokens": 163840000,
+  "total_train_flops": 5.9867136e+17,
+  "initial_train_loss_nats": 9.508134,
+  "final_train_loss_nats": 6.751935,
+  "final_val_loss_nats": 6.782795,
+  "S_nats_total": 36294457.942016065,
+  "S_bits": 52361834.48469963,
+  "S_bits_per_train_token": 0.319591274931028,
+  "H_bits_per_test_token": 9.785504709866457,
+  "total_info_bits_per_token": 10.105095984797485,
+  "structural_fraction": 0.03162674312167188,
+  "gzip_complexity": 0.843002,
+  "oracle_loss_nats": 7.743,
   "language_entropy_nats": null,
   "approximation_used": false,
   "warnings": [
-    "197 steps have loss BELOW final training loss (0.9969); the model may still be improving."
+    "450 steps have loss BELOW final training loss (6.7519); the model may still be improving."
   ]
 }
