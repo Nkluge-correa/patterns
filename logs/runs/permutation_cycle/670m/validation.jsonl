@@ -1,2 +1,2 @@
-{"kwh": 0.398122, "loss": 2.265809, "stage_name": "permutation_cycle", "status": "validation", "step": 200, "val_time_s": 16.881947}
-{"kwh": 3.918117, "loss": 0.009116, "stage_name": "permutation_cycle", "status": "validation", "step": 2000, "val_time_s": 16.6901}
+{"kwh": 0.006207, "loss": 3.240407, "stage_name": "permutation_cycle", "status": "validation", "step": 200, "val_time_s": 15.198525}
+{"kwh": 0.070758, "loss": 2.2502, "stage_name": "permutation_cycle", "status": "validation", "step": 2000, "val_time_s": 12.563881}

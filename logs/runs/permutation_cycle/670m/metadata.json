@@ -9,38 +9,37 @@
         "Applied Liger kernels to the model.",
         "Number of trainable parameters: 595,023,360",
         "Shuffling enabled. Shuffling 11 dataset files.",
-        "Collate function will mask token IDs: []",
+        "Collate function will mask token IDs: [0]",
         "Overriding the number of steps to 2000 as per the `max_steps` argument (check the YAML file if you are not sure).",
         "Using learning rate decay type: cosine"
       ],
       "events": [
-        "Learning rate stage changed to: cosine_decay at step 200 | permutation_cycle.",
-        "Epoch 2 of 1"
+        "Learning rate stage changed to: cosine_decay at step 200 | permutation_cycle."
       ],
       "run_info": {
         "Training stage": "permutation_cycle",
-        "Run ID": "206833",
-        "Hardware": "A100",
-        "World size (total GPUs)": "2",
+        "Run ID": "105807",
+        "Hardware": "H200",
+        "World size (total GPUs)": "1",
         "Precision": "bfloat16"
       },
       "Dataset Configuration": {
         "Num train examples": "250,000",
         "Num validation examples": "1,024",
-        "Length of train dataloader": "7,813",
+        "Length of train dataloader": "62,500",
         "Max position embeddings (seq length)": "4,096",
         "Shuffle dataset": "True",
-        "Additional mask token IDs": "None"
+        "Masked token IDs": "[0]"
       },
       "Batch Configuration": {
         "Num Epochs": "1",
-        "Micro batch size per device": "16",
-        "Gradient accumulation steps": "4",
-        "Total batch size (samples)": "128",
-        "Total batch size (tokens)": "524,288",
+        "Micro batch size per device": "4",
+        "Gradient accumulation steps": "1",
+        "Total batch size (samples)": "4",
+        "Total batch size (tokens)": "16,384",
         "Total optimization steps": "2,000",
-        "Steps per epoch": "1,954",
-        "Checkpointing every": "5000 steps"
+        "Steps per epoch": "62,500",
+        "Checkpointing every": "100000 steps"
       },
       "Model Architecture": {
         "Model config": {
@@ -75,7 +74,7 @@
           "use_cache": false,
           "vocab_size": 256
         },
-        "Attention implementation": "flash_attention_2",
+        "Attention implementation": "flash_attention_4",
         "Gradient checkpointing": "False",
         "Liger kernel": "True",
         "Torch compile": "False",
@@ -83,7 +82,7 @@
       },
       "Optimizer Configuration (AdamW)": {
         "Optimizer type": "adamw",
-        "Max learning rate (Adam)": "0.001",
+        "Max learning rate (Adam)": "0.0001",
         "Min learning rate": "0.0",
         "LR scheduler type": "COSINE",
         "LR decay iterations coef": "0.1",
@@ -97,9 +96,9 @@
     }
   },
   "emissions": {
-    "duration_hours": 3.7677,
-    "energy_consumed_kwh": 3.926272,
-    "co2_emissions_kgco2eq": 1.495713,
+    "duration_hours": 0.149,
+    "energy_consumed_kwh": 0.072291,
+    "co2_emissions_kgco2eq": 0.027539,
     "num_nodes": 1
   }
 }

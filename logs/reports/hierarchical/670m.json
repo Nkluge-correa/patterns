@@ -1,22 +1,22 @@
 {
   "run_name": "hierarchical",
-  "model_params": 670000000,
-  "total_train_tokens": 1000000000,
-  "total_train_flops": 4.02e+18,
-  "initial_train_loss_nats": 5.744874,
-  "final_train_loss_nats": 0.002712,
-  "final_val_loss_nats": 0.002714,
-  "S_nats_total": 215726657.50000003,
-  "S_bits": 311227778.96280193,
-  "S_bits_per_train_token": 0.31122777896280196,
-  "H_bits_per_test_token": 0.003915474340972646,
-  "total_info_bits_per_token": 0.31514325330377463,
-  "structural_fraction": 0.9875755730134624,
+  "model_params": 595000000,
+  "total_train_tokens": 32768000,
+  "total_train_flops": 1.1698176e+17,
+  "initial_train_loss_nats": 5.683773,
+  "final_train_loss_nats": 3.340934,
+  "final_val_loss_nats": 3.22946,
+  "S_nats_total": 18136993.046528004,
+  "S_bits": 26166149.924863566,
+  "S_bits_per_train_token": 0.7985275245624868,
+  "H_bits_per_test_token": 4.6591259267492715,
+  "total_info_bits_per_token": 5.457653451311758,
+  "structural_fraction": 0.14631334358002504,
   "gzip_complexity": 0.009466,
   "oracle_loss_nats": 0.0041,
   "language_entropy_nats": null,
   "approximation_used": false,
   "warnings": [
-    "37 steps have loss BELOW final training loss (0.0027); the model may still be improving."
+    "597 steps have loss BELOW final training loss (3.3409); the model may still be improving."
   ]
 }

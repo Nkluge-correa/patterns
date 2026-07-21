@@ -1,2 +1,2 @@
-{"kwh": 0.419653, "loss": 2e-06, "stage_name": "identity", "status": "validation", "step": 200, "val_time_s": 16.41336}
-{"kwh": 4.096645, "loss": 0.0, "stage_name": "identity", "status": "validation", "step": 2000, "val_time_s": 15.748965}
+{"kwh": 0.008233, "loss": 0.272055, "stage_name": "identity", "status": "validation", "step": 200, "val_time_s": 13.905119}
+{"kwh": 0.053933, "loss": 2e-06, "stage_name": "identity", "status": "validation", "step": 2000, "val_time_s": 11.469928}

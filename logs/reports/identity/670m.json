@@ -1,20 +1,22 @@
 {
   "run_name": "identity",
-  "model_params": 670000000,
-  "total_train_tokens": 1000000000,
-  "total_train_flops": 4.02e+18,
-  "initial_train_loss_nats": 5.693123,
-  "final_train_loss_nats": 0.0,
-  "final_val_loss_nats": 0.0,
-  "S_nats_total": 16027075.25,
-  "S_bits": 23122181.983129244,
-  "S_bits_per_train_token": 0.02312218198312924,
-  "H_bits_per_test_token": 0.0,
-  "total_info_bits_per_token": 0.02312218198312924,
-  "structural_fraction": 1.0,
+  "model_params": 595000000,
+  "total_train_tokens": 32768000,
+  "total_train_flops": 1.1698176e+17,
+  "initial_train_loss_nats": 5.769175,
+  "final_train_loss_nats": 1e-06,
+  "final_val_loss_nats": 2e-06,
+  "S_nats_total": 8992758.74304,
+  "S_bits": 12973808.442494676,
+  "S_bits_per_train_token": 0.39592921272261583,
+  "H_bits_per_test_token": 2.8853900817779268e-06,
+  "total_info_bits_per_token": 0.3959320981126976,
+  "structural_fraction": 0.9999927124118112,
   "gzip_complexity": 0.003106,
   "oracle_loss_nats": 0.0014,
   "language_entropy_nats": null,
   "approximation_used": false,
-  "warnings": []
+  "warnings": [
+    "74 steps have loss BELOW final training loss (0.0000); the model may still be improving."
+  ]
 }

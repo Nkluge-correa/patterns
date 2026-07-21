@@ -1,22 +1,22 @@
 {
   "run_name": "interleaving",
-  "model_params": 670000000,
-  "total_train_tokens": 1000000000,
-  "total_train_flops": 4.02e+18,
-  "initial_train_loss_nats": 5.809682,
-  "final_train_loss_nats": 0.002569,
-  "final_val_loss_nats": 0.002656,
-  "S_nats_total": 196557797.75,
-  "S_bits": 283572960.06198084,
-  "S_bits_per_train_token": 0.28357296006198085,
-  "H_bits_per_test_token": 0.0038317980286010868,
-  "total_info_bits_per_token": 0.2874047580905819,
-  "structural_fraction": 0.9866675901468779,
+  "model_params": 595000000,
+  "total_train_tokens": 32768000,
+  "total_train_flops": 1.1698176e+17,
+  "initial_train_loss_nats": 5.697535,
+  "final_train_loss_nats": 1.201262,
+  "final_val_loss_nats": 1.470132,
+  "S_nats_total": 38621683.26144,
+  "S_bits": 55719310.91206378,
+  "S_bits_per_train_token": 1.7004184238300715,
+  "H_bits_per_test_token": 2.1209521458521734,
+  "total_info_bits_per_token": 3.821370569682245,
+  "structural_fraction": 0.4449760610291885,
   "gzip_complexity": 0.00556,
   "oracle_loss_nats": 0.0027,
   "language_entropy_nats": null,
   "approximation_used": false,
   "warnings": [
-    "65 steps have loss BELOW final training loss (0.0026); the model may still be improving."
+    "116 steps have loss BELOW final training loss (1.2013); the model may still be improving."
   ]
 }

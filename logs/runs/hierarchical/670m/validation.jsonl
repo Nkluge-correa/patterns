@@ -1,2 +1,2 @@
-{"kwh": 0.400661, "loss": 0.043232, "stage_name": "hierarchical", "status": "validation", "step": 200, "val_time_s": 16.722567}
-{"kwh": 3.998334, "loss": 0.002714, "stage_name": "hierarchical", "status": "validation", "step": 2000, "val_time_s": 16.541043}
+{"kwh": 0.006102, "loss": 4.203454, "stage_name": "hierarchical", "status": "validation", "step": 200, "val_time_s": 15.046773}
+{"kwh": 0.052715, "loss": 3.22946, "stage_name": "hierarchical", "status": "validation", "step": 2000, "val_time_s": 12.399541}

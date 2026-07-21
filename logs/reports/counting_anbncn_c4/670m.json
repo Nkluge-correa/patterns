@@ -1,0 +1,22 @@
+{
+  "run_name": "counting_anbncn_c4",
+  "model_params": 670000000,
+  "total_train_tokens": 5200000000,
+  "total_train_flops": 2.0904e+19,
+  "initial_train_loss_nats": 10.835079,
+  "final_train_loss_nats": 2.902907,
+  "final_val_loss_nats": 2.913233,
+  "S_nats_total": 2244465405.0000005,
+  "S_bits": 3238079109.2403398,
+  "S_bits_per_train_token": 0.6227075210077577,
+  "H_bits_per_test_token": 4.202906802054078,
+  "total_info_bits_per_token": 4.825614323061836,
+  "structural_fraction": 0.12904212382490027,
+  "gzip_complexity": 0.388584,
+  "oracle_loss_nats": null,
+  "language_entropy_nats": 1.8,
+  "approximation_used": false,
+  "warnings": [
+    "1157 steps have loss BELOW final training loss (2.9029); the model may still be improving."
+  ]
+}

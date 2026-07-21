@@ -1,0 +1,22 @@
+{
+  "run_name": "composite_mirror_repeat_c4",
+  "model_params": 670000000,
+  "total_train_tokens": 5200000000,
+  "total_train_flops": 2.0904e+19,
+  "initial_train_loss_nats": 10.792549,
+  "final_train_loss_nats": 2.920834,
+  "final_val_loss_nats": 2.93169,
+  "S_nats_total": 2251618424.8999996,
+  "S_bits": 3248398735.5774484,
+  "S_bits_per_train_token": 0.6246920645341246,
+  "H_bits_per_test_token": 4.229534624423765,
+  "total_info_bits_per_token": 4.85422668895789,
+  "structural_fraction": 0.12869033618787057,
+  "gzip_complexity": 0.388584,
+  "oracle_loss_nats": null,
+  "language_entropy_nats": 1.8,
+  "approximation_used": false,
+  "warnings": [
+    "1136 steps have loss BELOW final training loss (2.9208); the model may still be improving."
+  ]
+}
