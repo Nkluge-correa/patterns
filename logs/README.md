@@ -577,3 +577,59 @@ The results are mixed rather than uniformly negative:
   * **What did we change:** Added `--seed` flag to `reset_weights.py` to allow reproducible resets.
 
 In short, we updated the weight-transfer protocol, the shuffle-dyck generator, the NCA generator, and the synthetic token budgets to match the reference papers. Now we need to re-run the 670M-scale pre-pretraining → pretraining pipeline with these fixes and report the new results in a follow-up entry.
+
+## 2026-07-23: 670M-scale C4 transfer results — after protocol fixes
+
+These are the information-theoretic metrics after the protocol fixes described in the 2026-07-13 entry. The new results are consistent with the prior run, but the numbers have shifted slightly due to the generator and weight-transfer changes. The new results are:
+
+```
+  Model                    Val Loss   Val PPL  S (bits/tok)  H (bits/tok)  Total (b/t)  Struct Frac  GZip Compl.  Oracle Loss  Lang Entropy
+  -----------------------  --------  --------  ------------  ------------  -----------  -----------  -----------  -----------  ------------
+  random                     5.5413  255.0118        0.0140        7.9944       8.0084     0.001745       1.0225       5.5452           N/A
+  shuffle_dyck_64            2.9558   19.2175        0.3449        4.2643       4.6093       0.0748       0.8789       2.7554           N/A
+  nca_learnable_50           6.7828  882.5320        0.3196        9.7855      10.1051       0.0316       0.8561       7.7430           N/A
+  shuffle_dyck_32            2.5603   12.9403        0.2706        3.6938       3.9644       0.0683       0.7458       2.4086           N/A
+  nca_paper                  6.2141  499.7640        0.6148        8.9651       9.5799       0.0642       0.7287       0.0619           N/A
+  shuffle_dyck_16            2.1751    8.8027        0.2078        3.1379       3.3457       0.0621       0.6215       2.0622           N/A
+  c4                         2.9300   18.7277        0.6249        4.2271       4.8520       0.1288       0.5697          N/A        1.8000
+  composite_mirror_repeat    2.7685   15.9340        0.8928        3.9940       4.8868       0.1827       0.5516       1.3863           N/A
+  nca_learnable_25           2.7150   15.1049        0.9958        3.9169       4.9127       0.2027       0.5327       2.8531           N/A
+  shuffle_dyck_8             1.8045    6.0768        0.1579        2.6033       2.7612       0.0572       0.5139       1.7156           N/A
+  fineweb_edu                2.7594   15.7902        0.5826        3.9810       4.5635       0.1277       0.4891          N/A        1.8000
+  copy                       2.2967    9.9417        2.1583        3.3135       5.4718       0.3944       0.4654       2.3475           N/A
+  open_web_math              2.1123    8.2672        0.5760        3.0474       3.6234       0.1590       0.4632          N/A        1.7000
+  codeparrot                 0.8328    2.2997        0.5785        1.2015       1.7800       0.3250       0.3300          N/A        0.5000
+  mixer                      3.6577   38.7733        0.5739        5.2770       5.8509       0.0981       0.3073       0.9094           N/A
+  counting_anbncn            1.9285    6.8790        1.3962        2.7822       4.1784       0.3341       0.1280       0.1138           N/A
+  counting_anbn              1.4078    4.0872        1.4886        2.0311       3.5196       0.4229       0.1210       0.1669           N/A
+  permutation_cycle          2.2502    9.4896        1.2267        3.2464       4.4731       0.2743       0.0381     0.005700           N/A
+  hierarchical               3.2295   25.2660        0.7985        4.6591       5.4577       0.1463       0.0361     0.004100           N/A
+  interleaving               1.4701    4.3498        1.7004        2.1210       3.8214       0.4450       0.0302     0.002700           N/A
+  identity                 0.000002    1.0000        0.3959      0.000003       0.3959       1.0000       0.0283     0.001400           N/A
+  periodic                   2.4971   12.1467        0.5804        3.6025       4.1829       0.1388       0.0112     0.005700           N/A
+
+```
+
+Meanwhile, the downstream transfer results (ARC-Easy, BLiMP, HellaSwag, LAMBADA, Winogrande) are:
+
+```
+  Model                          ARC-Easy      BLiMP     HellaSwag     LAMBADA     Winogrande     Val Loss     Val PPL
+  --------------------------  -----------  ---------  ------------  ----------  -------------  -----------  ----------
+  mixer_c4                       0.4112 🟢   0.8247 🟢      0.3743 🟢    0.3148 🟢       0.5170 🟢     2.9045 🟢   18.2568 🟢
+  shuffle_dyck_16_c4             0.4133 🟢   0.8193 🟢      0.3690 🟢    0.3179 🟢       0.5272 🟢     2.9102 🟢   18.3601 🟢
+  identity_c4                    0.4082 🟢   0.8242 🟢      0.3705 🟢    0.3088 🟢       0.5107 🔴     2.9131 🟢   18.4132 🟢
+  counting_anbncn_c4             0.4154 🟢   0.8273 🟢      0.3675 🟢    0.3208 🟢       0.5170 🟢     2.9132 🟢   18.4162 🟢
+  shuffle_dyck_32_c4             0.4040 🔴   0.8204 🟢      0.3662 🟢    0.3264 🟢       0.5138 🟢     2.9132 🟢   18.4165 🟢
+  shuffle_dyck_8_c4              0.4108 🟢   0.8246 🟢      0.3664 🟢    0.3307 🟢       0.4893 🔴     2.9144 🟢   18.4372 🟢
+  permutation_cycle_c4           0.4104 🟢   0.8223 🟢      0.3623 🔴    0.3167 🟢       0.5107 🔴     2.9164 🟢   18.4742 🟢
+  periodic_c4                    0.4082 🟢   0.8206 🟢      0.3684 🟢    0.3185 🟢       0.5083 🔴     2.9164 🟢   18.4743 🟢
+  counting_anbn_c4               0.4040 🔴   0.8122 🔴      0.3624 🔴    0.3107 🟢       0.5264 🟢     2.9172 🟢   18.4888 🟢
+  interleaving_c4                0.4141 🟢   0.8214 🟢      0.3661 🟢    0.3126 🟢       0.5130 🟢     2.9173 🟢   18.4912 🟢
+  shuffle_dyck_64_c4             0.4120 🟢   0.8163 🟢      0.3645 🟢    0.3121 🟢       0.4901 🔴     2.9183 🟢   18.5106 🟢
+  hierarchical_c4                0.4070 🔴   0.8222 🟢      0.3682 🟢    0.3121 🟢       0.5280 🟢     2.9185 🟢   18.5141 🟢
+  copy_c4                        0.4146 🟢   0.8229 🟢      0.3625 🔴    0.3223 🟢       0.5067 🔴     2.9214 🟢   18.5675 🟢
+  nca_learnable_50_c4            0.4091 🟢   0.8193 🟢      0.3638 🔴    0.3119 🟢       0.4980 🔴     2.9263 🟢   18.6583 🟢
+  nca_learnable_25_c4            0.4024 🔴   0.8144 🔴      0.3604 🔴    0.3198 🟢       0.5036 🔴     2.9264 🟢   18.6604 🟢
+  c4                            **0.4078**   **0.8146**     **0.3644**   **0.3068**      **0.5114**    **2.9300**   **18.7277**
+  composite_mirror_repeat_c4     0.4129 🟢   0.8232 🟢      0.3641 🔴    0.3097 🟢       0.5170 🟢     2.9317 🔴   18.7593 🔴
+```

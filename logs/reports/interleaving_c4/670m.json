@@ -1,0 +1,22 @@
+{
+  "run_name": "interleaving_c4",
+  "model_params": 670000000,
+  "total_train_tokens": 5200000000,
+  "total_train_flops": 2.0904e+19,
+  "initial_train_loss_nats": 10.819656,
+  "final_train_loss_nats": 2.908148,
+  "final_val_loss_nats": 2.917293,
+  "S_nats_total": 2268882285.2799993,
+  "S_bits": 3273305221.3342733,
+  "S_bits_per_train_token": 0.6294817733335142,
+  "H_bits_per_test_token": 4.208764143920087,
+  "total_info_bits_per_token": 4.838245917253601,
+  "structural_fraction": 0.1301053696110667,
+  "gzip_complexity": 0.569745,
+  "oracle_loss_nats": null,
+  "language_entropy_nats": 1.8,
+  "approximation_used": false,
+  "warnings": [
+    "1203 steps have loss BELOW final training loss (2.9081); the model may still be improving."
+  ]
+}

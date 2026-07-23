@@ -12,7 +12,7 @@
   "H_bits_per_test_token": 9.785504709866457,
   "total_info_bits_per_token": 10.105095984797485,
   "structural_fraction": 0.03162674312167188,
-  "gzip_complexity": 0.843002,
+  "gzip_complexity": 0.856134,
   "oracle_loss_nats": 7.743,
   "language_entropy_nats": null,
   "approximation_used": false,

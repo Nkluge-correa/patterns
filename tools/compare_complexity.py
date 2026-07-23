@@ -155,6 +155,23 @@ def main():
         print("No report data found.", file=sys.stderr)
         sys.exit(1)
 
+    # Sort by gzip_complexity (desc), then structural_fraction (desc);
+    # N/A values go to the end.
+    combined = list(zip(model_names, all_metrics, strict=False))
+    combined.sort(
+        key=lambda x: (
+            x[1].get("gzip_complexity")
+            if x[1].get("gzip_complexity") is not None
+            else float("-inf"),
+            x[1].get("structural_fraction")
+            if x[1].get("structural_fraction") is not None
+            else float("-inf"),
+        ),
+        reverse=True,
+    )
+    model_names = [c[0] for c in combined]
+    all_metrics = [c[1] for c in combined]
+
     print_table(model_names, all_metrics)
 
 

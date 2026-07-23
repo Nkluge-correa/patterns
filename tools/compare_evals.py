@@ -20,10 +20,16 @@ FOLDERS = [
     "nca_paper_c4/670m",
     "nca_learnable_25_c4/670m",
     "nca_learnable_50_c4/670m",
-    "mixer_c4/670m",
     "composite_mirror_repeat_c4/670m",
     "copy_c4/670m",
+    "counting_anbn_c4/670m",
     "counting_anbncn_c4/670m",
+    "hierarchical_c4/670m",
+    "identity_c4/670m",
+    "interleaving_c4/670m",
+    "mixer_c4/670m",
+    "periodic_c4/670m",
+    "permutation_cycle_c4/670m",
 ]
 
 # Metrics to extract from evals.yaml
@@ -53,6 +59,17 @@ METRIC_NAMES = {
     "winogrande_acc": "Winogrande",
     "val_loss": "Val Loss",
     "val_ppl": "Val PPL",
+}
+
+# Direction: +1 = higher is better, -1 = lower is better
+METRIC_DIRECTION = {
+    "arc_easy_acc_norm": 1,
+    "blimp_acc": 1,
+    "hellaswag_acc_norm": 1,
+    "lambada_openai_acc": 1,
+    "winogrande_acc": 1,
+    "val_loss": -1,
+    "val_ppl": -1,
 }
 
 
@@ -102,9 +119,22 @@ def format_value(value) -> str:
     return str(value)
 
 
-def print_table(model_names: list[str], all_metrics: list[dict]):
-    """Print a formatted comparison table."""
-    # Column widths: model name + one per metric
+def compare_vs_baseline(value, baseline, direction: int) -> str:
+    """Return a comparison emoji: 🟢 if better, 🔴 if worse, '' if equal or N/A."""
+    if value is None or baseline is None:
+        return ""
+    if value == baseline:
+        return ""
+    # direction=+1: higher is better; direction=-1: lower is better
+    better = (value > baseline) if direction == 1 else (value < baseline)
+    return "🟢" if better else "🔴"
+
+
+def print_table(
+    model_names: list[str], all_metrics: list[dict], baseline_metrics: dict | None = None
+):
+    """Print a formatted comparison table, with 🟢/🔴 vs baseline."""
+    # Determine column widths, accounting for emoji width (2 char)
     col_widths = {"model": max(len("Model"), max(len(n) for n in model_names))}
 
     for metric in METRICS:
@@ -113,7 +143,8 @@ def print_table(model_names: list[str], all_metrics: list[dict]):
         for m in all_metrics:
             val_str = format_value(m.get(metric))
             max_val_len = max(max_val_len, len(val_str))
-        col_widths[metric] = max_val_len
+        # Account for emoji indicator (2 chars + space)
+        col_widths[metric] = max_val_len + (3 if baseline_metrics else 0)
 
     header_cells = ["Model"] + [METRIC_NAMES.get(m, m) for m in METRICS]
     header_row = "  " + header_cells[0].ljust(col_widths["model"])
@@ -129,8 +160,16 @@ def print_table(model_names: list[str], all_metrics: list[dict]):
     for name, metrics in zip(model_names, all_metrics, strict=False):
         row = "  " + name.ljust(col_widths["model"])
         for metric in METRICS:
-            val = format_value(metrics.get(metric))
-            row += "  " + val.rjust(col_widths[metric])
+            val_str = format_value(metrics.get(metric))
+            if baseline_metrics and name != "c4":
+                # Find baseline for this metric (look up by the short name)
+                bl_val = baseline_metrics.get(metric)
+                direction = METRIC_DIRECTION.get(metric, 0)
+                emoji = compare_vs_baseline(metrics.get(metric), bl_val, direction)
+                cell = f"{val_str} {emoji}" if emoji else val_str
+            else:
+                cell = val_str
+            row += "  " + cell.rjust(col_widths[metric])
         print(row)
 
     print()
@@ -159,7 +198,22 @@ def main():
         print("No eval data found.", file=sys.stderr)
         sys.exit(1)
 
-    print_table(model_names, all_metrics)
+    # Extract c4 baseline metrics for comparison
+    baseline_metrics = None
+    for name, m in zip(model_names, all_metrics, strict=False):
+        if name == "c4":
+            baseline_metrics = m
+            break
+
+    # Sort by validation loss (ascending), N/A values go to the end
+    combined = list(zip(model_names, all_metrics, strict=False))
+    combined.sort(
+        key=lambda x: x[1].get("val_loss") if x[1].get("val_loss") is not None else float("inf")
+    )
+    model_names = [c[0] for c in combined]
+    all_metrics = [c[1] for c in combined]
+
+    print_table(model_names, all_metrics, baseline_metrics)
 
 
 if __name__ == "__main__":

@@ -418,7 +418,7 @@ def render_report(result: EpiplexityResult, json_output: bool = False) -> str:
         L.append("| Metric | Value |")
         L.append("|---|---|")
         if result.gzip_complexity is not None:
-            L.append(f"| Gzip complexity | {result.gzip_complexity:.4f} |")
+            L.append(f"| Mean gzip complexity | {result.gzip_complexity:.4f} |")
         if result.oracle_loss_nats is not None:
             L.append(
                 f"| Oracle next-token loss | {result.oracle_loss_nats:.4f} nats "
@@ -426,12 +426,13 @@ def render_report(result: EpiplexityResult, json_output: bool = False) -> str:
             )
         L.append("")
         L.append(
-            "* **Gzip complexity** (compressed / original bytes) — approximates total "
-            "Kolmogorov complexity.  Used together with epiplexity to disambiguate the "
-            "high-structural-fraction region: trivially compressible patterns (gzip ≈ 0, "
-            "like periodic sequences) score high on structural fraction but contain no "
-            "transferable structure; genuinely rich data (natural language, chess) has "
-            "both high structural fraction AND moderate-to-high gzip complexity."
+            "* **Mean gzip complexity** (compressed / original bytes, averaged per-sample) — "
+            "approximates Kolmogorov complexity.  Used together with epiplexity to "
+            "disambiguate the high-structural-fraction region: trivially compressible "
+            "patterns (mean gzip ≈ 0, like periodic sequences) score high on structural "
+            "fraction but contain no transferable structure; genuinely rich data "
+            "(natural language, chess) has both high structural fraction AND "
+            "moderate-to-high mean gzip complexity."
         )
         L.append(
             "* **Oracle next-token loss** — the irreducible entropy of the generating "
@@ -441,23 +442,18 @@ def render_report(result: EpiplexityResult, json_output: bool = False) -> str:
 
     # Interpretation
     #
-    # Describes where the data sits in the S_T × H_T landscape,
-    # optionally augmented by gzip complexity:
-    #
-    #                     High S_T (complex, structured)
-    #                            /\
-    #                           /  \
-    #                          /    \
-    #                         /      \
-    #                        /        \
-    #                       /          \
-    #     Low S_T, Low H_T /            \ High S_T, High H_T
-    #     (trivial,       /              \ (natural language,
-    #      predictable)  /                \  chess, NCA)
-    #                   /__________________\
-    #     Low S_T, High H_T
-    #     (CSPRNG, uniform noise,
-    #      Rule 30 ECA)
+    #                     H_T
+    #                     ^
+    #                     |
+    #      Noise          |        Natural systems
+    #  (CSPRNG, Rule 30)  |   (language, chess, NCA)
+    #                     |
+    # ---------------------+------------------------> S_T
+    #                     |
+    #     Trivial         |
+    # (constant strings,  |
+    #   repetitions)      |
+    #                     |
     #
     L.append("## Interpretation")
     L.append("")
@@ -471,13 +467,13 @@ def render_report(result: EpiplexityResult, json_output: bool = False) -> str:
 
         if gz < 0.05:
             L.append(
-                f"**Trivially compressible** (gzip {gz:.4f}) — near-zero "
+                f"**Trivially compressible** (mean gzip {gz:.4f}) — near-zero "
                 "Kolmogorov complexity.  The data is almost completely "
                 "compressible; any extracted structure comes from a pattern "
                 "simple enough for a lookup table."
             )
         elif gz < 0.15:
-            L.append(f"**Low gzip complexity** ({gz:.4f}) — the data is highly compressible.")
+            L.append(f"**Low mean gzip complexity** ({gz:.4f}) — the data is highly compressible.")
             if sf < 0.05:
                 L.append(
                     f"Structural fraction is low ({sf:.2%}) — the model "
@@ -498,12 +494,12 @@ def render_report(result: EpiplexityResult, json_output: bool = False) -> str:
                     f"Structural fraction is high ({sf:.2%}) — the model "
                     "extracted substantial learnable structure (S_T = "
                     f"{st_bits:.4f} bits/token, H_T = {ht_bits:.4f} bits/token), but "
-                    "the low gzip value indicates the underlying pattern "
+                    "the low mean gzip value indicates the underlying pattern "
                     "is simple."
                 )
         elif gz < 0.50:
             L.append(
-                f"**Moderate gzip complexity** ({gz:.4f}) — the data has a "
+                f"**Moderate mean gzip complexity** ({gz:.4f}) — the data has a "
                 "mix of compressible and incompressible content."
             )
             if sf < 0.05:
@@ -529,7 +525,9 @@ def render_report(result: EpiplexityResult, json_output: bool = False) -> str:
                     "structure."
                 )
         else:  # gz >= 0.50
-            L.append(f"**High gzip complexity** ({gz:.4f}) — the data is largely incompressible.")
+            L.append(
+                f"**High mean gzip complexity** ({gz:.4f}) — the data is largely incompressible."
+            )
             if sf < 0.05:
                 L.append(
                     f"Structural fraction is near zero ({sf:.2%}) — almost no "
@@ -579,7 +577,7 @@ def render_report(result: EpiplexityResult, json_output: bool = False) -> str:
                 f"**High structural fraction** ({sf:.2%}) — the model "
                 f"extracted substantial learnable structure (S_T = {st_bits:.4f} "
                 f"bits/token, H_T = {ht_bits:.4f} bits/token).  Note: without "
-                "gzip complexity, high structural fraction could indicate "
+                "mean gzip complexity, high structural fraction could indicate "
                 "either a genuinely rich pattern or a trivially "
                 "compressible deterministic sequence."
             )
@@ -661,11 +659,12 @@ def main() -> None:
     ref.add_argument(
         "--gzip-complexity",
         type=float,
-        help="Global gzip complexity ratio "
-        "(compressed / original bytes).  Use the *global* "
-        "value, not per-sample — the global measurement "
-        "compresses the full concatenated token stream the "
-        "way the model sees it.",
+        help="Mean gzip complexity ratio "
+        "(compressed / original bytes), averaged "
+        "across samples.  Use the *mean* per-sample "
+        "value, not the global concatenated measurement "
+        "— the per-sample mean reflects the typical "
+        "compressibility of individual sequences.",
     )
     ref.add_argument(
         "--oracle-loss",
