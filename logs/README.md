@@ -1,4 +1,4 @@
-# Patterns Are All You Need
+# Complexity-Guided Pre-Pretraining
 
 ## Main Idea
 
