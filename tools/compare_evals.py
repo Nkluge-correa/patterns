@@ -30,6 +30,7 @@ FOLDERS = [
     "mixer_c4/670m",
     "periodic_c4/670m",
     "permutation_cycle_c4/670m",
+    "random_c4/670m",
 ]
 
 # Metrics to extract from evals.yaml
