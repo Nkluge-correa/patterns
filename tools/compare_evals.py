@@ -5,14 +5,19 @@ import math
 import os
 import sys
 
+import pandas as pd
 import yaml
 
 # Where the logs are stored
 LOGS_DIR = "/home/nicholas/Documents/patterns/logs/runs"
 
+# Window size for exponential moving average smoothing of training loss
+EMA_WINDOW = 100
+
 # Hardcoded list of run folders to compare (relative to LOGS_DIR)
 FOLDERS = [
     "c4/670m",
+    "c4_c4/670m",
     "shuffle_dyck_8_c4/670m",
     "shuffle_dyck_16_c4/670m",
     "shuffle_dyck_32_c4/670m",
@@ -46,6 +51,8 @@ EVAL_METRICS = [
 EXTRA_METRICS = [
     "val_loss",
     "val_ppl",
+    "ppl_improv",
+    "speedup",
 ]
 
 # Combined ordered list for table printing
@@ -60,6 +67,8 @@ METRIC_NAMES = {
     "winogrande_acc": "Winogrande",
     "val_loss": "Val Loss",
     "val_ppl": "Val PPL",
+    "ppl_improv": "PPL Impr%",
+    "speedup": "Speedup",
 }
 
 # Direction: +1 = higher is better, -1 = lower is better
@@ -108,14 +117,103 @@ def extract_metrics(data: dict, val_loss: float | None) -> dict:
     metrics = {key: results.get(key, None) for key in EVAL_METRICS}
     metrics["val_loss"] = val_loss
     metrics["val_ppl"] = math.exp(val_loss) if val_loss is not None else None
+    metrics["ppl_improv"] = None  # computed after baseline is known
+    metrics["speedup"] = None  # computed after baseline is known
     return metrics
 
 
-def format_value(value) -> str:
+def load_training_losses(folder_path: str) -> list[float] | None:
+    """Load all training loss values from training.jsonl."""
+    jsonl_path = os.path.join(folder_path, "training.jsonl")
+    if not os.path.isfile(jsonl_path):
+        print(f"  [WARN] training.jsonl not found in: {folder_path}", file=sys.stderr)
+        return None
+    losses = []
+    with open(jsonl_path) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                record = json.loads(line)
+                losses.append(record.get("loss"))
+    return losses
+
+
+def ema_smooth(losses: list[float], window: int = EMA_WINDOW) -> list[float]:
+    """Apply exponential moving average smoothing to a loss curve.
+
+    Uses alpha = 2 / (window + 1), the standard EMA formula.
+    """
+    if not losses:
+        return []
+    alpha = 2.0 / (window + 1)
+    smoothed = [losses[0]]
+    for loss in losses[1:]:
+        smoothed.append(alpha * loss + (1 - alpha) * smoothed[-1])
+    return smoothed
+
+
+def find_convergence_step(smoothed: list[float], target_loss: float) -> int | None:
+    """Find the first step (1-indexed) where smoothed loss <= target_loss.
+
+    Returns None if the curve never reaches the target.
+    """
+    for i, loss in enumerate(smoothed):
+        if loss <= target_loss:
+            return i + 1  # 1-indexed step
+    return None
+
+
+def compute_ppl_improvement(ppl: float | None, baseline_ppl: float | None) -> float | None:
+    """Percentage improvement of perplexity vs baseline.
+
+    Positive means the run is better (lower perplexity) than baseline.
+    Formula: (baseline - run) / baseline * 100
+    """
+    if ppl is None or baseline_ppl is None or baseline_ppl == 0:
+        return None
+    return (baseline_ppl - ppl) / baseline_ppl * 100.0
+
+
+def compute_speedup(
+    folder_path: str,
+    baseline_smoothed_losses: list[float],
+    baseline_steps: int,
+) -> float | None:
+    """Compute convergence speedup vs baseline.
+
+    Returns the ratio: baseline_steps / pattern_steps_to_reach_baseline_final_loss.
+    A value > 1.0 means the pattern converged faster.
+    Returns None if the pattern never reaches the baseline's final loss.
+    """
+    losses = load_training_losses(folder_path)
+    if losses is None or not losses:
+        return None
+
+    # Baseline's final smoothed loss is the target
+    target_loss = baseline_smoothed_losses[-1]
+
+    smoothed = ema_smooth(losses)
+    pattern_step = find_convergence_step(smoothed, target_loss)
+
+    if pattern_step is None:
+        return None
+
+    return baseline_steps / pattern_step
+
+
+def format_value(value, metric: str = "") -> str:
     """Format a metric value for table display."""
     if value is None:
         return "N/A"
     if isinstance(value, float):
+        if math.isnan(value):
+            return "N/A"
+        if metric == "ppl_improv":
+            # Show signed percentage, e.g. "+3.52%" or "-1.23%"
+            return f"{value:+.2f}%"
+        if metric == "speedup":
+            # Show multiplier, e.g. "1.25×"
+            return f"{value:.2f}×"
         return f"{value:.4f}"
     return str(value)
 
@@ -124,56 +222,15 @@ def compare_vs_baseline(value, baseline, direction: int) -> str:
     """Return a comparison emoji: 🟢 if better, 🔴 if worse, '' if equal or N/A."""
     if value is None or baseline is None:
         return ""
+    if isinstance(value, float) and math.isnan(value):
+        return ""
+    if isinstance(baseline, float) and math.isnan(baseline):
+        return ""
     if value == baseline:
         return ""
     # direction=+1: higher is better; direction=-1: lower is better
     better = (value > baseline) if direction == 1 else (value < baseline)
     return "🟢" if better else "🔴"
-
-
-def print_table(
-    model_names: list[str], all_metrics: list[dict], baseline_metrics: dict | None = None
-):
-    """Print a formatted comparison table, with 🟢/🔴 vs baseline."""
-    # Determine column widths, accounting for emoji width (2 char)
-    col_widths = {"model": max(len("Model"), max(len(n) for n in model_names))}
-
-    for metric in METRICS:
-        header = METRIC_NAMES.get(metric, metric)
-        max_val_len = len(header)
-        for m in all_metrics:
-            val_str = format_value(m.get(metric))
-            max_val_len = max(max_val_len, len(val_str))
-        # Account for emoji indicator (2 chars + space)
-        col_widths[metric] = max_val_len + (3 if baseline_metrics else 0)
-
-    header_cells = ["Model"] + [METRIC_NAMES.get(m, m) for m in METRICS]
-    header_row = "  " + header_cells[0].ljust(col_widths["model"])
-    for i, metric in enumerate(METRICS):
-        header_row += "  " + header_cells[i + 1].rjust(col_widths[metric])
-    print(header_row)
-
-    sep = "  " + "-" * col_widths["model"]
-    for metric in METRICS:
-        sep += "  " + "-" * col_widths[metric]
-    print(sep)
-
-    for name, metrics in zip(model_names, all_metrics, strict=False):
-        row = "  " + name.ljust(col_widths["model"])
-        for metric in METRICS:
-            val_str = format_value(metrics.get(metric))
-            if baseline_metrics and name != "c4":
-                # Find baseline for this metric (look up by the short name)
-                bl_val = baseline_metrics.get(metric)
-                direction = METRIC_DIRECTION.get(metric, 0)
-                emoji = compare_vs_baseline(metrics.get(metric), bl_val, direction)
-                cell = f"{val_str} {emoji}" if emoji else val_str
-            else:
-                cell = val_str
-            row += "  " + cell.rjust(col_widths[metric])
-        print(row)
-
-    print()
 
 
 def main():
@@ -182,6 +239,7 @@ def main():
 
     print(f"Scanning {len(FOLDERS)} folders in: {LOGS_DIR}\n")
 
+    # --- First pass: collect eval metrics and val loss ---
     for folder in FOLDERS:
         full_path = os.path.join(LOGS_DIR, folder)
         model_name = folder.rstrip("/").rsplit("/", 1)[0]
@@ -199,22 +257,100 @@ def main():
         print("No eval data found.", file=sys.stderr)
         sys.exit(1)
 
-    # Extract c4 baseline metrics for comparison
+    # --- Identify baseline (c4) and compute its smoothed training loss ---
+    baseline_idx = None
+    for i, name in enumerate(model_names):
+        if name == "c4":
+            baseline_idx = i
+            break
+
+    baseline_ppl = None
+    baseline_smoothed_losses = None
+    baseline_steps = 0
+
+    if baseline_idx is not None:
+        baseline_metrics = all_metrics[baseline_idx]
+        baseline_ppl = baseline_metrics.get("val_ppl")
+
+        # Load and smooth baseline training loss for speedup computation
+        baseline_folder = os.path.join(LOGS_DIR, FOLDERS[baseline_idx])
+        baseline_losses = load_training_losses(baseline_folder)
+        if baseline_losses:
+            baseline_smoothed_losses = ema_smooth(baseline_losses)
+            baseline_steps = len(baseline_losses)
+
+    # --- Second pass: compute ppl_improv and speedup for each run ---
+    for _i, folder in enumerate(FOLDERS):
+        model_name = folder.rstrip("/").rsplit("/", 1)[0]
+        if model_name not in model_names:
+            continue  # folder was skipped due to missing evals
+
+        # Find the metrics dict for this model
+        metrics_idx = model_names.index(model_name)
+        metrics = all_metrics[metrics_idx]
+
+        # PPL improvement vs baseline
+        if model_name != "c4":
+            metrics["ppl_improv"] = compute_ppl_improvement(metrics.get("val_ppl"), baseline_ppl)
+
+        # Convergence speedup vs baseline
+        if model_name != "c4" and baseline_smoothed_losses is not None:
+            full_path = os.path.join(LOGS_DIR, folder)
+            metrics["speedup"] = compute_speedup(
+                full_path, baseline_smoothed_losses, baseline_steps
+            )
+
+    # --- Extract c4 baseline metrics for comparison ---
     baseline_metrics = None
     for name, m in zip(model_names, all_metrics, strict=False):
         if name == "c4":
             baseline_metrics = m
             break
 
-    # Sort by validation loss (ascending), N/A values go to the end
-    combined = list(zip(model_names, all_metrics, strict=False))
-    combined.sort(
-        key=lambda x: x[1].get("val_loss") if x[1].get("val_loss") is not None else float("inf")
-    )
-    model_names = [c[0] for c in combined]
-    all_metrics = [c[1] for c in combined]
+    # Build DataFrame
+    df = pd.DataFrame(all_metrics, index=model_names)
+    df.index.name = "Model"
 
-    print_table(model_names, all_metrics, baseline_metrics)
+    # Rename columns and order per METRICS
+    df = df.rename(columns=METRIC_NAMES)
+    display_order = [METRIC_NAMES[m] for m in METRICS if METRIC_NAMES[m] in df.columns]
+    df = df[display_order]
+
+    # Sort by Val Loss ascending; N/A to end
+    if "Val Loss" in df.columns:
+        df = df.sort_values("Val Loss", ascending=True, na_position="last")
+
+    # Build display DataFrame with formatted values and emoji indicators
+    reverse_names = {v: k for k, v in METRIC_NAMES.items()}
+    display_df = pd.DataFrame(index=df.index)
+
+    for col in df.columns:
+        orig_key = reverse_names.get(col, "")
+        display_col = []
+        for idx in df.index:
+            val = df.loc[idx, col]
+            val_str = format_value(val, orig_key)
+
+            # Emoji vs baseline (skip baseline row and derived metrics)
+            if baseline_metrics and idx != "c4" and orig_key not in ("ppl_improv", "speedup"):
+                bl_val = baseline_metrics.get(orig_key)
+                direction = METRIC_DIRECTION.get(orig_key, 0)
+                emoji = compare_vs_baseline(val, bl_val, direction)
+                if emoji:
+                    val_str = f"{val_str} {emoji}"
+
+            display_col.append(val_str)
+        display_df[col] = display_col
+
+    print(display_df.to_markdown(index=True))
+
+    # Save as CSV (strip emoji indicators from cell values)
+    csv_dir = os.path.join(os.path.dirname(LOGS_DIR), "measurements")
+    os.makedirs(csv_dir, exist_ok=True)
+    csv_path = os.path.join(csv_dir, "evals.csv")
+    csv_df = display_df.apply(lambda col: col.str.replace(r"[🟢🔴]", "", regex=True).str.strip())
+    csv_df.to_csv(csv_path, index=True)
+    print(f"\nSaved: {csv_path}")
 
 
 if __name__ == "__main__":

@@ -6,6 +6,8 @@ import math
 import os
 import sys
 
+import pandas as pd
+
 # Where the complexity reports are stored
 REPORTS_DIR = "/home/nicholas/Documents/patterns/logs/reports"
 
@@ -90,47 +92,13 @@ def format_value(value) -> str:
     if value is None:
         return "N/A"
     if isinstance(value, float):
+        if math.isnan(value):
+            return "N/A"
         # Use more precision for small values like structural_fraction
         if abs(value) < 0.01:
             return f"{value:.6f}"
         return f"{value:.4f}"
     return str(value)
-
-
-def print_table(model_names: list[str], all_metrics: list[dict]):
-    """Print a formatted comparison table."""
-    col_widths = {"model": max(len("Model"), max(len(n) for n in model_names))}
-
-    for metric in METRICS:
-        header = METRIC_NAMES.get(metric, metric)
-        max_val_len = len(header)
-        for m in all_metrics:
-            val_str = format_value(m.get(metric))
-            max_val_len = max(max_val_len, len(val_str))
-        col_widths[metric] = max_val_len
-
-    # Header row
-    header_cells = ["Model"] + [METRIC_NAMES.get(m, m) for m in METRICS]
-    header_row = "  " + header_cells[0].ljust(col_widths["model"])
-    for i, metric in enumerate(METRICS):
-        header_row += "  " + header_cells[i + 1].rjust(col_widths[metric])
-    print(header_row)
-
-    # Separator
-    sep = "  " + "-" * col_widths["model"]
-    for metric in METRICS:
-        sep += "  " + "-" * col_widths[metric]
-    print(sep)
-
-    # Data rows
-    for name, metrics in zip(model_names, all_metrics, strict=False):
-        row = "  " + name.ljust(col_widths["model"])
-        for metric in METRICS:
-            val = format_value(metrics.get(metric))
-            row += "  " + val.rjust(col_widths[metric])
-        print(row)
-
-    print()
 
 
 def main():
@@ -155,24 +123,38 @@ def main():
         print("No report data found.", file=sys.stderr)
         sys.exit(1)
 
-    # Sort by gzip_complexity (desc), then structural_fraction (desc);
-    # N/A values go to the end.
-    combined = list(zip(model_names, all_metrics, strict=False))
-    combined.sort(
-        key=lambda x: (
-            x[1].get("gzip_complexity")
-            if x[1].get("gzip_complexity") is not None
-            else float("-inf"),
-            x[1].get("structural_fraction")
-            if x[1].get("structural_fraction") is not None
-            else float("-inf"),
-        ),
-        reverse=True,
-    )
-    model_names = [c[0] for c in combined]
-    all_metrics = [c[1] for c in combined]
+    # Build DataFrame
+    df = pd.DataFrame(all_metrics, index=model_names)
+    df.index.name = "Dataset/Pattern"
 
-    print_table(model_names, all_metrics)
+    # Rename columns and order per METRICS
+    df = df.rename(columns=METRIC_NAMES)
+    display_order = [METRIC_NAMES[m] for m in METRICS if METRIC_NAMES[m] in df.columns]
+    df = df[display_order]
+
+    # Sort by GZip Compl. (desc), then Struct Frac (desc); N/A to end
+    sort_by = []
+    gzip_col = METRIC_NAMES["gzip_complexity"]
+    struct_col = METRIC_NAMES["structural_fraction"]
+    if gzip_col in df.columns:
+        sort_by.append(gzip_col)
+    if struct_col in df.columns:
+        sort_by.append(struct_col)
+    if sort_by:
+        df = df.sort_values(sort_by, ascending=False, na_position="last")
+
+    # Format all columns for display
+    for col in df.columns:
+        df[col] = df[col].apply(format_value)
+
+    print(df.to_markdown(index=True))
+
+    # Save as CSV
+    csv_dir = os.path.join(os.path.dirname(REPORTS_DIR), "measurements")
+    os.makedirs(csv_dir, exist_ok=True)
+    csv_path = os.path.join(csv_dir, "complexity.csv")
+    df.to_csv(csv_path, index=True)
+    print(f"\nSaved: {csv_path}")
 
 
 if __name__ == "__main__":

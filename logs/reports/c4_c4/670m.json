@@ -1,0 +1,22 @@
+{
+  "run_name": "c4_c4",
+  "model_params": 670000000,
+  "total_train_tokens": 5200000000,
+  "total_train_flops": 2.0904e+19,
+  "initial_train_loss_nats": 4.775736,
+  "final_train_loss_nats": 2.917709,
+  "final_val_loss_nats": 2.929539,
+  "S_nats_total": 1593058029.9400005,
+  "S_bits": 2298296919.642781,
+  "S_bits_per_train_token": 0.44198017685438085,
+  "H_bits_per_test_token": 4.2264313873908135,
+  "total_info_bits_per_token": 4.668411564245194,
+  "structural_fraction": 0.094674638422939,
+  "gzip_complexity": 0.569745,
+  "oracle_loss_nats": null,
+  "language_entropy_nats": 1.8,
+  "approximation_used": false,
+  "warnings": [
+    "1092 steps have loss BELOW final training loss (2.9177); the model may still be improving."
+  ]
+}
