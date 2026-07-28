@@ -378,7 +378,11 @@ All these issues were fixed, but we are still unsure if this will work, i.e., th
 
 The total time-bounded information is $S_T + H_T$. The formal definition uses a two-part Minimum Description Length (MDL) objective under a fixed runtime budget $T$:
 
-$$S_T(X) = |\mathrm{P}^\star|,\quad \mathrm{P}^\star = \arg\min_{\mathrm{P} \in \mathcal{P}_T} \left\{ |\mathrm{P}| + \mathbb{E}\left[-\log P(X)\right] \right\}$$
+$$
+S_T(X) = |\mathrm{P}^\star|,\quad
+\mathrm{P}^\star = \arg\min_{\mathrm{P} \in \mathcal{P}_T}
+\{ |\mathrm{P}| + \mathbb{E}[-\log P(X)] \}
+$$
 
 where $\mathcal{P}_T$ is the set of probabilistic models evaluable in time $T$.
 
@@ -631,3 +635,140 @@ Meanwhile, the downstream transfer results (ARC-Easy, BLiMP, HellaSwag, LAMBADA,
 | composite_mirror_repeat_c4 | 0.4129 🟢  | 0.8232 🟢  | 0.3641 🔴  | 0.3097 🟢  | 0.5170 🟢  | 2.9317 🔴  | 18.7593 🔴  | -0.17%    | 1.21×   |
 | random_c4                  | 0.4066 🔴  | 0.8147 🟢  | 0.3602 🔴  | 0.3045 🔴  | 0.5130 🟢  | 2.9393 🔴  | 18.9030 🔴  | -0.94%    | N/A     |
 | nca_paper_c4               | 0.4070 🔴  | 0.8245 🟢  | 0.3561 🔴  | 0.3062 🔴  | 0.5020 🔴  | 2.9402 🔴  | 18.9198 🔴  | -1.03%    | N/A     |
+
+## 2026-07-28: Post-hoc analysis of the 670M C4 run
+
+This section reports a systematic post-hoc analysis of the 670M-parameter C4 transfer experiment described in the previous entry (2026-07-23). The full computational notebook is at [`logs/analysis/c4_transfer_analysis.ipynb`](analysis/c4_transfer_analysis.ipynb); all figures referenced below live in [`logs/plots/analysis/`](plots/analysis/).
+
+### Background and terminology
+
+The experiment asks whether pre-pretraining a language model on synthetic, rule-generated patterns—before it ever sees real text—improves downstream performance on natural language. Each of the 20 conditions follows the same two-phase protocol:
+
+1. **Phase 1 (pre-pretraining):** Train a 670M-parameter Llama from scratch on one data source—either a synthetic pattern (e.g., Dyck brackets, a cellular automaton, or counting sequences) or a natural corpus (C4, FineWeb-Edu, etc.).
+2. **Phase 2 (pretraining):** Reset all model weights except the attention layers, re-initialize the embeddings to match a standard tokenizer, then train all conditions on 5.2B tokens of C4. The `c4` condition—which trains on C4 in both phases—serves as the baseline.
+
+We compare conditions using two families of outcome: downstream C4 validation loss (and derived metrics like perplexity improvement and convergence speedup) and five standard benchmarks (ARC-Easy, BLiMP, HellaSwag, LAMBADA, Winogrande).
+
+Four phase-1 measurements are used throughout to characterize each data source:
+
+| Symbol      | Name                   | What it measures                                                                                                                                                                        |
+|-------------|------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| gzip        | gzip complexity        | Compressed/original byte size—a cheap proxy for Kolmogorov complexity (total information content).                                                                                      |
+| oracle loss | oracle loss            | The lowest possible loss for a model that knows the exact data-generating rule. A theoretical floor.                                                                                    |
+| $S_T$       | prequential epiplexity | Bits/token the model *spent learning* the pattern—the area between the training loss curve and its final floor. High $S_T$ means the model had to build non-trivial internal machinery. |
+| $H_T$       | time-bounded entropy   | Bits/token of residual unpredictability after the model has extracted all learnable structure.                                                                                          |
+
+These are complementary: gzip and oracle loss are properties of the data alone, while $S_T$ and $H_T$ depend on both the data and the model-and-budget used to learn it. A critical detail is that phase-1 training was deliberately capped short of convergence for every condition—training longer (~1B tokens) drives every pattern's loss close to its oracle, but earlier experiments showed that doing so *hurts* downstream transfer. Every analysis below therefore measures these quantities at the empirically chosen, undertrained budget, not at saturation.
+
+**Caveat: single-seed.** Every condition was run with one random seed. The noise-floor check in the next section is essential context for interpreting every correlation that follows.
+
+### How much of the observed variation is real?
+
+Before asking whether any phase-1 property predicts transfer, we need to know whether the spread across conditions is larger than what you would expect from measurement noise alone. The notebook uses two independent yardsticks (Section 4):
+
+1. **Benchmark sampling error:** how much a score would jitter between runs just because the test set is finite. The observed range across all 20 conditions is compared to 2× the per-task binomial standard error.
+2. **Null conditions:** `c4_c4` (phase 1 = phase 2 = C4, so no synthetic phase at all) and `identity_c4` (phase 1 = a trivial single-token repetition) have no real structure to transfer. Whatever downstream delta they produce is an upper bound on noise and warm-start artifacts, expressed in the same units as the headline result.
+
+The verdict is mixed. Four of the five benchmarks clear their noise floors, but by very different margins: **BLiMP** has the cleanest signal (signal/noise = 5.7×), followed by **LAMBADA** (2.4×) and **HellaSwag** (1.9×). **Winogrande** barely clears (1.4×), and **ARC-Easy** does not clear at all (0.6×)—its observed spread across all conditions is smaller than 2σ of sampling error, so ARC-Easy differences should be discounted.
+
+> **Note:** This is not to say ARC is bad. However, given the little signal it produces, it is not a useful benchmark for this experiment. The other four benchmarks are more trustworthy.
+
+For downstream C4 validation loss, the null-condition yardstick shows that the best synthetic condition (`mixer_c4`, loss = 2.9045) beats the baseline (2.9300) by 0.0255 nats, while the `identity_c4` null—a model pre-pretrained on literally nothing learnable—is only 0.0169 nats behind baseline and ranks third-best overall. The full spread from best to worst is just ~0.036 nats, and 13 of the 19 pre-pretrained conditions sit within ±0.013 nats of baseline. Every downstream loss delta lives inside a narrow band (see `q6_delta_bars.png`).
+
+**Takeaway:** BLiMP is the most trustworthy benchmark; HellaSwag and LAMBADA provide supporting evidence; Winogrande is suggestive at best; ARC-Easy should be ignored. Downstream C4 validation loss is a cleaner continuous signal than any single benchmark, but all correlations involving it still operate on ~19 data points with small effect sizes.
+
+### gzip and epiplexity measure different things
+
+A natural first question is whether gzip complexity—a one-line shell command—is a good enough proxy for "how much structure is in this data." If it were, we could avoid training models just to measure $S_T$ and $H_T$.
+
+The answer, shown in the quadrant plot `q2_st_vs_gzip_quadrant.png`, is that gzip and $S_T$ diverge in both directions.
+
+![q2_st_vs_gzip_quadrant.png](plots/analysis/q2_st_vs_gzip_quadrant.png)
+
+Some patterns are low-gzip but high-$S_T$: a generic compressor finds them highly squeezable, yet the model still had to build real internal machinery to predict them well—structure that gzip cannot "see" because it is not just byte-level repetition. Others are high-gzip but low-$S_T$: they look incompressible to gzip, but the model quickly learns there is nothing more to extract (closer to noise dressed up as complexity). Across all patterns, $S_T$ and gzip are negatively correlated (ρ ≈ −0.51), and structural fraction is even more strongly anti-correlated with gzip (ρ ≈ −0.74): patterns with more learnable, rule-like structure tend to be *more* gzip-compressible, not less.
+
+The four-panel figure `q1_gzip_vs_loss.png` reinforces this: gzip tracks oracle loss well (ρ ≈ 0.84—it captures the difficulty of the underlying rule), but it tracks achieved phase-1 validation loss only moderately (ρ ≈ 0.58), because achieved loss also depends on how far training was allowed to go.
+
+![q1_gzip_vs_loss.png](plots/analysis/q1_gzip_vs_loss.png)
+
+**Takeaway:** gzip complexity and epiplexity answer different questions. gzip says "how compressible is this data?"; $S_T$ says "how much did the model have to learn?" Using gzip alone as a stand-in for learnable complexity would miss structure that a generic compressor cannot represent (e.g., Dyck bracket matching or NCA dynamics).
+
+### Does the phase-1 undertraining gap predict transfer? (Q0)
+
+Every synthetic pattern *can* be learned nearly perfectly given enough tokens, but all conditions here are deliberately stopped early because more training hurts downstream transfer. The dumbbell plot in `learnability_gap_sweet_spot.png` (left panel) shows where each condition's phase-1 training actually stopped relative to its oracle loss.
+
+![learnability_gap_sweet_spot.png](plots/analysis/learnability_gap_sweet_spot.png)
+
+If there were a universal "sweet spot" amount of undertraining, the size of the gap between achieved and oracle loss should predict downstream C4 performance. It does not (right panel, same figure): ρ = −0.11, p = 0.65. `mixer` has one of the largest gaps (2.75 nats) yet is the best downstream condition; `nca_paper` has an even larger gap (6.15 nats) and is the worst. Whatever makes a pattern a good warm-up is not captured by how far it is from its own asymptote.
+
+### Can any phase-1 property predict downstream transfer? (Q3)
+
+This is the central analysis. For each of eight phase-1 metrics (gzip, $S_T$, $H_T$, $S_T+H_T$, structural fraction, phase-1 validation loss, oracle loss, and phase-1 token budget), we compute the Spearman rank correlation against seven downstream outcomes (C4 validation loss, PPL improvement %, and the five benchmarks), with permutation-based p-values corrected for multiple testing via Benjamini-Hochberg.
+
+The full correlation matrix is shown in `q3_corr_heatmap.png`. The headline is that **no single phase-1 metric survives multiple-testing correction.** Across 56 tests, the smallest FDR-corrected q-value is 0.09 ($S_T+H_T$ → downstream validation loss). At n = 19, none of these correlations should be reported as a confirmed discovery.
+
+![q3_corr_heatmap.png](plots/analysis/q3_corr_heatmap.png)
+
+That said, a consistent pattern emerges from the suggestive (uncorrected) signals:
+
+* **$S_T+H_T$ (total time-bounded information) → downstream validation loss** gives the strongest raw signal (ρ = +0.65, p = 0.003, q = 0.09), mirrored by an equally strong and opposite-signed link to PPL improvement %. Phase-1 $H_T$ and phase-1 validation loss produce nearly identical results (both ρ = +0.56), which is expected at this token budget: "how much uncertainty is left" and "how well the model fit the pattern" are tightly coupled.
+* **Oracle loss → BLiMP** is the most credible single-benchmark result (ρ = −0.52, p = 0.021, q = 0.17): patterns with a harder underlying generating rule tend to transfer somewhat worse to BLiMP. This is worth weighting because BLiMP is the benchmark that clears the noise floor by the widest margin.
+* **Structural fraction is the weakest predictor** across the board (|ρ| ≤ 0.24 for every outcome, never reaching p < 0.1). The proportion of a pattern that is rule-like rather than entropic, measured at this undertrained budget, says essentially nothing about transfer.
+* **gzip complexity** points the right direction everywhere (positive with validation loss, negative with every benchmark) but never reaches significance on its own (best: p = 0.07 for validation loss).
+* **ARC-Easy correlates weakly with everything** (|ρ| ≤ 0.24, every p > 0.3)—a useful sanity check: the noisiest benchmark is also the one that shows the least relationship to any phase-1 property.
+
+The scatter plots in `q3_scatter_phase1_vs_downstream.png` make the difficulty visually apparent: $S_T$, gzip, and structural fraction all produce clouds where the canonical conditions spread across the full x-range but converge to a tight y-band around the baseline.
+
+![q3_scatter_phase1_vs_downstream.png](plots/analysis/q3_scatter_phase1_vs_downstream.png)
+
+**Takeaway:** No phase-1 property, measured at the deliberately capped budget, reliably predicts which pattern will transfer best. The most consistent (if unconfirmed) story is that $H_T$-like metrics—"how much unpredictability is left"—track downstream validation loss better than any single benchmark, and that BLiMP shows a plausible negative link to oracle loss. More seeds are needed.
+
+### Does the complexity-matching hypothesis hold? (Q4)
+
+Lee et al. (2026) propose that transfer is maximized when the synthetic source matches the complexity of the target domain: the closer a pattern's phase-1 statistics are to C4's own, the better it should transfer. The notebook tests this by computing the absolute distance of each pattern from the C4 reference row along four axes (gzip, $S_T$, $H_T$, phase-1 validation loss) and correlating each distance against downstream validation loss and BLiMP.
+
+The result, shown in `q4_complexity_matching.png`, is that **the hypothesis finds no support.** All six correlations are weak and non-significant (every q ≥ 0.84, every p ≥ 0.26). Moreover, every distance-to-validation-loss correlation is *negative*: patterns whose phase-1 statistics are further from C4's tend to have slightly *better* (lower) downstream loss—the opposite of what the hypothesis predicts. The strongest of these (gzip distance, ρ = −0.27) is still not significant.
+
+![q4_complexity_matching.png](plots/analysis/q4_complexity_matching.png)
+
+$H_T$ distance and loss distance produce nearly identical statistics (ρ = −0.095 for both), confirming that these two quantities move together in lockstep at the capped budget and should be treated as one piece of evidence rather than independent tests. Gzip distance → BLiMP is essentially flat (ρ = +0.02, p = 0.93).
+
+**Takeaway:** Matching phase-1 statistics to the target domain does not predict better transfer in this dataset. The complexity-matching hypothesis—at least as operationalized through these four distance metrics—is not supported.
+
+### Is phase-1 structure conserved into phase 2? (Q5)
+
+If pre-pretraining installed reusable circuits, phase 2 should show evidence that less structure needs to be re-derived: high phase-1 $S_T$ should predict lower phase-2 $S_T$ (the model already brought some structure with it). This is the strongest version of the transfer claim.
+
+The answer, shown in `q5_structure_conservation.png`, is no. Phase-1 $S_T$ has no detectable relationship to phase-2 $S_T$ (ρ = −0.08, p = 0.74), and phase-2 $S_T$ itself has no relationship to downstream validation loss (ρ = +0.14, p = 0.57). The left panel explains why: **phase-2 $S_T$ is nearly constant** across all 19 pre-pretrained conditions, sitting in a narrow band of ~0.60–0.65 bits/token regardless of whether phase-1 $S_T$ was ~0.03 (`random`) or ~2.1 (the highest synthetic patterns). Whatever structure a pattern taught in phase 1, the model re-derives essentially the same amount of new structure once it starts training on C4.
+
+![q5_structure_conservation.png](plots/analysis/q5_structure_conservation.png)
+
+The one point that stands apart is the `c4` baseline itself (phase-2 $S_T$ ≈ 0.44), but this is expected: it has no separate phase-1 reset, so its $S_T$ reflects a single continuous training run rather than a second pass over already-seen structure.
+
+**Takeaway:** There is no evidence that phase-1 structural information is conserved into phase 2. Phase-2 $S_T$ is remarkably flat across conditions with wildly different phase-1 learning histories, and that flat quantity has no relationship to downstream transfer. If pre-pretraining helps, it is not through the mechanism of "the model has less structure left to learn."
+
+### The training-curve advantage is concentrated at the very start (Q6)
+
+The final analysis examines *when* in phase-2 training the pre-pretrained conditions pull ahead of baseline. By loading the raw training curves and computing the advantage relative to the `c4` baseline at eight probe steps (200 through 10,000), we can distinguish between a warm-start effect that fades and a genuine capability gain that persists or widens.
+
+The result, shown in `q7_curves_and_advantage.png`, is that **the advantage is almost entirely concentrated in the first ~1,000–2,000 steps and decays thereafter**—consistent with an optimization or warm-start effect rather than a lasting capability improvement.
+
+![q7_curves_and_advantage.png](plots/analysis/q7_curves_and_advantage.png)
+
+The large early advantage visible in the mean curve (right panel) is driven almost entirely by a single outlier: `c4_c4`, which at step 200 is 3.05 nats ahead of baseline. This is an artifact, not transfer: `c4_c4`'s phase 1 *is* C4, so at step 200 it has already seen far more C4 tokens than a model starting cold. That advantage collapses to −0.24 nats by step 1,000 and is gone by step 4,000. Excluding `c4_c4`, every other pattern actually starts *behind* the baseline at step 200—only `mixer_c4` (−0.03) and the NCA-learnable variants are ahead at that point, and the other 13 conditions are 0.01 to 0.54 nats *worse* than baseline.
+
+By step 1,000–2,000, nearly every condition has flipped to a small negative (ahead-of-baseline) advantage, and from step 4,000 onward the curves are essentially flat. `mixer_c4` settles at about −0.03 to −0.04 nats from step 2,000 through step 10,000; most other conditions sit in a similarly thin, stable band of roughly −0.01 to −0.02 nats. Only `random_c4` and `nca_paper_c4` end up behind baseline at step 10,000.
+
+The steps-to-baseline metric (how many steps each condition takes to reach the baseline's final smoothed training loss) lines up with the downstream ranking: `mixer_c4` reaches it fastest (1.43× speedup), consistent with being the best overall condition.
+
+**Takeaway:** Pre-pretraining provides a small, early optimization benefit that peaks around step 1,000–2,000 and then stabilizes into a roughly constant offset. The effect looks like a warm-start or better-initialization phenomenon, not a lasting capability gain that compounds with more training.
+
+### Synthesis
+
+Taken together, these analyses paint a consistent picture: pre-pretraining on synthetic patterns at this scale produces small but reliable downstream improvements that are best understood as an optimization-level benefit rather than the acquisition of general-purpose reasoning circuits.
+
+The strongest single finding is that **no phase-1 measurement—gzip, $S_T$, $H_T$, structural fraction, oracle loss, or any combination—reliably predicts which pattern will transfer best.** The complexity-matching hypothesis from the literature finds no support: patterns whose statistics are closer to C4's own do not transfer better. Phase-1 structural information ($S_T$) is not conserved into phase 2; instead, every pre-pretrained condition re-derives essentially the same amount of new structure once it starts training on C4. The training-curve advantage is concentrated in the first ~1,000–2,000 steps and then plateaus, consistent with a warm-start effect rather than a growing capability differential.
+
+The `mixer` pattern—which concatenates segments from different pattern types into each context—is the single best condition on nearly every metric (validation loss, perplexity improvement, speedup, and most benchmarks). It is also the condition about which the phase-1 metrics are least informative: it sits in an unremarkable quadrant of the gzip/$S_T$ plane, has one of the largest undertraining gaps, and shows no obvious signature that would have singled it out *a priori*. Understanding why `mixer` works—when the available phase-1 measurements cannot explain it—is the most important open question from this analysis.
+
+> **Important:** **single-seed experiments at n ≈ 20 conditions are underpowered** for drawing firm conclusions about what drives transfer. Every suggestive correlation reported here needs replication across multiple seeds before it should be treated as a confirmed result.
